@@ -1,0 +1,10 @@
+# 换行符统一：仓库里一律存 LF，检出时也按 LF（Windows 上 Python 完全没问题）
+* text=auto eol=lf
+
+# Windows 脚本用 CRLF 更稳（cmd 对 LF 的 .bat 有边角情况）
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# 第三方压缩资源 / 图标：别做换行符转换，免得每次都在"改动"
+charts/assets/echarts.min.js binary
+*.ico binary

@@ -1,0 +1,45 @@
+# ==================== Python ====================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# ==================== 虚拟环境 ====================
+.venv/
+venv/
+ENV/
+
+# ==================== 打包产物（配置要传，中间产物不要）====================
+# 注意：CrawlerStudio.spec 是打包配置，必须提交；只挡 build/ 和 dist/
+build/
+dist/
+*.spec.bak
+
+# ==================== 运行期产生的数据 ====================
+# 这几个目录每天都会长（data 已经 49 MB / 866 个文件），不往仓库里塞。
+# 只留 data/example/ 那个占位说明，让资源管理页有东西可看。
+data/*
+!data/example/
+reports/
+logs/
+views/
+*.log
+
+# ==================== 调试时的临时文件 ====================
+_*.bin
+_*.log
+_hc*.txt
+*.bak
+
+# ==================== 编辑器 / 系统 ====================
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store

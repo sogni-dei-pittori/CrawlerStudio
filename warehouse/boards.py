@@ -111,10 +111,16 @@ def audit() -> dict:
     }
 
 
-if __name__ == "__main__":
+def main() -> int:
+    """命令行入口：python -m warehouse.boards（开发）／--task warehouse.boards（打包）。"""
     df = load_boards()
     print(df.shape)  # 总行数、总列数
     print(df.groupby(["dataset", "via"]).size())  # ★ 这一行能验证整个设计
     print(df["snapshot_ts"].min(), df["snapshot_ts"].max())
     print(df[["rank", "title", "url", "source", "board", "snapshot", "score", "category"]].isna().sum())
     for k, v in audit().items(): print(f"{k}：{len(v)} 个", v[:3])
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

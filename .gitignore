@@ -43,3 +43,8 @@ _hc*.txt
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Nuitka ±àÒë²úÎï
+build_nuitka/
+tools/nuitka_test/
+

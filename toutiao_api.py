@@ -66,13 +66,19 @@ def fetch_toutiao_ranking(out_dir):
     return rows
 
 
-if __name__ == "__main__":
+def main() -> int:
+    """命令行入口：python -m toutiao_api（开发）／ CrawlerStudio.exe --task toutiao_api（打包）。"""
     out_dir = make_run_dir(DOMAIN)
     rows = fetch_toutiao_ranking(out_dir)
     if not rows:
         logger.error("没有获取到数据，结束运行")
-        exit(1)
+        return 1
     df = order_columns(pd.DataFrame(rows), BOARD_COLUMNS)
     csv_path = out_dir / "hot.csv"
     df.to_csv(csv_path, index=False, encoding='utf-8-sig')
     logger.info("已保存 CSV：%s（%d 行）", csv_path, len(rows))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -60,7 +60,9 @@ def latest_via(df, dataset, via):
     sub = pick_via(df, dataset, via)
     return sub[sub["snapshot_ts"] == sub["snapshot_ts"].max()]
 
-if __name__ == "__main__":
+
+def main() -> int:
+    """命令行入口：python -m analysis.common（开发）／ CrawlerStudio.exe --task analysis.common（打包）。"""
     from warehouse import load_boards
 
     df = load_boards()
@@ -69,7 +71,7 @@ if __name__ == "__main__":
     if df.empty:                # 空仓库时下面的列（tag 等）根本不存在，给句人话就退出
         print("\n仓库里还没有数据：data/ 下没读到任何快照。")
         print("先跑一次采集（python run_daily.py，或界面上的「开始采集」），再回来跑这个自检。")
-        raise SystemExit(0)
+        return 0
 
     print("\n--- 各数据集：全部 / 最新快照 ---")
     for name in ["douban_movie_top250", "douban_book_top250", "douban_doulist",
@@ -78,3 +80,8 @@ if __name__ == "__main__":
 
     print("\n--- 频次表自检：百度 tag ---")
     print(value_counts_table(latest(df, "baidu_realtime")["tag"], "tag").to_string(index=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

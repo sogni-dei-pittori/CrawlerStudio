@@ -1,7 +1,7 @@
 """图表层通用件：只把统计表画出来，不含任何统计逻辑。"""
 import pandas as pd
 from pyecharts import options as opts
-from pyecharts.charts import Bar, Line, Page
+from pyecharts.charts import Bar, Line, Page, Pie, Scatter
 from pyecharts.commons.utils import JsCode
 from pyecharts.globals import CurrentConfig
 
@@ -58,6 +58,7 @@ def bar_h(table, x_col, y_col, title, top=None, label_max=None) -> Bar:
         )
     )
 
+
 def line_multi(table, x_col, group_col, y_col, title, smooth=False) -> Line:
     """多系列折线图：按 group_col 分组，每组一条线。
 
@@ -67,7 +68,7 @@ def line_multi(table, x_col, group_col, y_col, title, smooth=False) -> Line:
     xs = sorted(table[x_col].unique())
     chart = Line().add_xaxis([str(x) for x in xs])
     for group, g in table.groupby(group_col):
-        series = g.set_index(x_col)[y_col].reindex(xs)          # ★ 对齐横轴，否则线会错位
+        series = g.set_index(x_col)[y_col].reindex(xs)  # ★ 对齐横轴，否则线会错位
         chart.add_yaxis(
             str(group),
             [None if pd.isna(v) else float(v) for v in series],
@@ -79,6 +80,7 @@ def line_multi(table, x_col, group_col, y_col, title, smooth=False) -> Line:
         xaxis_opts=opts.AxisOpts(name=x_col),
         yaxis_opts=opts.AxisOpts(name=y_col),
     )
+
 
 def topic_rank_bar(table, label_max=10) -> Bar:
     """同一话题在两个源上的名次对比。
@@ -101,8 +103,60 @@ def topic_rank_bar(table, label_max=10) -> Bar:
         )
     )
 
+
 def make_page(charts: list, title: str) -> Page:
     """把多张图合成一页（看板）。"""
     page = Page(layout=Page.SimplePageLayout, page_title=title)
     page.add(*charts)
     return page
+
+
+def scatter(table, x_col, y_col, label_col, title, x_name="", y_name="") -> Scatter:
+    """散点图：每个点是一份文档（x=词数，y=去重词汇量，点旁边标文件名）。"""
+    points = [[row[x_col], row[y_col], str(row[label_col])] for _, row in table.iterrows()]
+    chart = Scatter(init_opts=opts.InitOpts(width="900px", height="500px"))
+    chart.add_xaxis([p[0] for p in points])  # x 轴只占位，真实坐标在 data 里
+    chart.add_yaxis(
+        y_name or y_col,
+        points,  # [x, y, 文件名] 三元组
+        symbol_size=14,
+        label_opts=opts.LabelOpts(
+            is_show=True, position="right",  # 直接把文件名标在点旁边，比 tooltip 直观
+            formatter=JsCode("function(p){return p.data[2];}"),
+        ),
+    )
+    chart.set_global_opts(
+        title_opts=opts.TitleOpts(title=title),
+        xaxis_opts=opts.AxisOpts(name=x_name or x_col, type_="value"),
+        yaxis_opts=opts.AxisOpts(name=y_name or y_col, type_="value"),
+    )
+    return chart
+
+
+def pie_top(table, name_col, value_col, title, top: int = 8, other_label: str = "其他") -> Pie:
+    """饼图：只画"占比"，而且**切片别超过 8~10 片**（再多就看不清谁是谁）。
+
+    超出 top 的部分合并成一片「其他」，名字里写清合并了几项 ——
+    这样占比加起来仍然是 100%，不会让人误以为少算了一截。
+    """
+    data = table.sort_values(value_col, ascending=False)
+    head = data.head(top)
+    names = [str(v) for v in head[name_col]]
+    values = [float(v) for v in head[value_col]]
+    rest = float(data[value_col].astype(float).iloc[top:].sum()) if len(data) > top else 0.0
+    if rest > 0:
+        names.append(f"{other_label}（{len(data) - top} 项）")
+        values.append(rest)
+    return (
+        Pie(init_opts=opts.InitOpts(width="900px", height="500px"))
+        .add(
+            "",
+            [list(z) for z in zip(names, values)],
+            radius=["35%", "65%"],
+            label_opts=opts.LabelOpts(formatter="{b}: {d}%"),
+        )
+        .set_global_opts(
+            title_opts=opts.TitleOpts(title=title),
+            legend_opts=opts.LegendOpts(is_show=False),
+        )
+    )

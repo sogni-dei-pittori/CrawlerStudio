@@ -52,13 +52,19 @@ def fetch_baidu_ranking(out_dir):
     return rows
 
 
-if __name__ == "__main__":
+def main() -> int:
+    """命令行入口：python -m baidu_api（开发）／ CrawlerStudio.exe --task baidu_api（打包）。"""
     out_dir = make_run_dir(DOMAIN)
     rows = fetch_baidu_ranking(out_dir)
     if not rows:
         logger.error("没有获取到数据")
-        exit(1)
+        return 1
     df = order_columns(pd.DataFrame(rows), BOARD_COLUMNS)
 
     df.to_csv(out_dir / "board.csv", index=False, encoding='utf-8-sig')
     logger.info("已保存 CSV：%s", out_dir / "board.csv")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

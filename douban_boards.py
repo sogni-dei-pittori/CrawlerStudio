@@ -84,7 +84,9 @@ def fetch_doulist(out_dir,pages=5):
         time.sleep(SLEEP)
     return [fill_core(r, "douban", "doulist", snapshot_of(out_dir)) for r in rows]
 
-if __name__ == "__main__":
+
+def main() -> int:
+    """命令行入口：python -m douban_boards（开发）／ CrawlerStudio.exe --task douban_boards（打包）。"""
     movie_dir = make_run_dir(MOVIE_DOMAIN)
     book_dir = make_run_dir(BOOK_DOMAIN)
     doulist_dir = make_run_dir(DOULIST_DOMAIN)
@@ -106,3 +108,8 @@ if __name__ == "__main__":
         order_columns(pd.DataFrame(doulist_rows), BOARD_COLUMNS).to_csv(
             doulist_dir / "doulist.csv", index=False, encoding="utf-8-sig")
         logger.info("已保存 CSV：%s（%d 行）", doulist_dir / "doulist.csv", len(doulist_rows))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

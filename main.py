@@ -553,6 +553,10 @@ class MainWindow(QMainWindow):
         self.btn_txt_extract.clicked.connect(self.start_text_extract)
         self.btn_txt_report.clicked.connect(lambda: self.run_module("analysis.text_report"))
         self.btn_txt_open.clicked.connect(self.open_text_report_dir)
+
+        # ★ 启动就把最近一批报告显示出来（没有就保持占位页，不会报错）。
+        #   否则报告明明已经生成过、界面却显示「还没有生成图表」，很让人困惑。
+        self.load_text_report()
         return page
 
     @staticmethod

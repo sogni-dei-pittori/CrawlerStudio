@@ -44,7 +44,8 @@ Thumbs.db
 desktop.ini
 .DS_Store
 
-# Nuitka ±àÒë²úÎï
+
+
+# Nuitka build output (do not commit)
 build_nuitka/
 tools/nuitka_test/
-

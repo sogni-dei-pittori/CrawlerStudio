@@ -955,8 +955,11 @@ def run_task(module: str, extra: list[str] | None = None) -> int:
     """
     import importlib
 
-    sys.argv = [module, *(extra or [])]     # ★ 必须改：否则模块会看到 --task 这些参数，
-    mod = importlib.import_module(module)   #   像 run_daily 会把 --task 当成"站点名"
+    # ★ 必须改：否则模块会看到 --task 这些参数（像 run_daily 会把 --task 当成"站点名"）。
+    #   但 argv[0] 要保留真正的程序路径 —— 有些模块（run_daily）要在子进程里再起子进程，
+    #   它们靠 utils.paths.self_exe() 找自己，而那个函数会看 argv[0] ✗ 不能填模块名。
+    sys.argv = [sys.argv[0], *(extra or [])]
+    mod = importlib.import_module(module)
     entry = getattr(mod, "main", None)
     if entry is None:
         if module in TOP_LEVEL_MODULES:

@@ -23,6 +23,12 @@ BASE_DIR = Path(sys.executable).parent if is_frozen() else Path(__file__).resolv
 DATA_ROOT = BASE_DIR / "data"
 
 
+# ★ 在任何代码改 sys.argv 之前先记下原始 argv[0]。
+#   为什么必须这样：main.py 的 run_task() 会把 sys.argv 改成 [模块名, ...]（防止 --task 串味），
+#   于是 run_daily 这类"子进程里再起子进程"的模块，运行时的 sys.argv[0] 已经不是 exe 路径了 ✗。
+ARGV0_AT_IMPORT = sys.argv[0] if sys.argv else ""
+
+
 def self_exe() -> Path:
     """打包后「我自己」那个可执行文件 —— 用来起子进程（exe 自己当解释器）。
 
@@ -36,7 +42,8 @@ def self_exe() -> Path:
     exe = Path(sys.executable)
     if exe.suffix.lower() == ".exe" and exe.is_file():
         return exe                       # PyInstaller / 开发环境
-    argv0 = Path(sys.argv[0])
-    if argv0.suffix.lower() == ".exe" and argv0.is_file():
-        return argv0.resolve()           # Nuitka：退回真正的 exe
+    for raw in (ARGV0_AT_IMPORT, sys.argv[0] if sys.argv else ""):
+        argv0 = Path(raw)
+        if argv0.suffix.lower() == ".exe" and argv0.is_file():
+            return argv0.resolve()       # Nuitka：退回真正的 exe（优先用 import 时记下的）
     return exe

@@ -37,7 +37,8 @@ def load_latest_extract() -> pd.DataFrame:
     root = BASE_DIR / "data" / "documents"
     snaps = sorted([d for d in root.glob("*") if (d / "extracted.csv").exists()])
     if not snaps:
-        raise SystemExit("还没有抽取结果：先跑 python -m extract.documents 目录")
+        print("还没有抽取结果：先在「文本分析」页选好语料目录、点「① 开始抽取」。")
+        raise SystemExit(0)      # 不是错误，是"还没做这一步"，退出码给 0
     csv_path = snaps[-1] / "extracted.csv"
     print(f"读取：{csv_path}")
     df = pd.read_csv(csv_path, keep_default_na=False, dtype={"page": str})

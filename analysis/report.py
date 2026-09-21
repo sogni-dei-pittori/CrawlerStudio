@@ -17,25 +17,38 @@ PREVIEW_ROWS = 15
 
 
 def build_tables(df) -> dict:
-    """要出的统计表集中在这里 —— 加一个新指标就是加一行。"""
-    return {
-        "豆瓣_评分分布": douban.rating_distribution(df),
-        "豆瓣_年代分布": douban.decade_distribution(df),
-        "百度_名次变化": common.rank_changes(df, "baidu_realtime"),
-        "豆瓣_投票增长": douban.votes_growth(df),
-        "B站_播放量分布": bilibili.score_distribution(df),
-        "B站_名次相关": bilibili.rank_score_table(df),
-        "B站_播放量增长": bilibili.views_growth(df),
-        "掘金_作者上榜": hot.author_ranking(df),
-        "头条_标签构成": hot.label_composition(df),
-        "头条_热度相关": hot.heat_rank_check(df),
-        "百度_标签构成": baidu.tag_composition(df),
-        "百度_分类构成": baidu.category_composition(df),
-        "跨源_覆盖情况": cross.daily_coverage(df),
-        "跨源_同日Top5": cross.top_by_source(df, n=5),
-        "跨源_同话题": cross.cross_topic(df, n=10),
-        "跨源_翻新速度": cross.churn_rate(df, n=10),
+    """要出的统计表集中在这里 —— 加一个新指标就是加一行。
+
+    ★ 每张表单独 try/except：空仓库、或者老快照缺某一列（比如历史数据没有 rating）时，
+      坏一张表不该让整批报告都出不来 —— 跳过的会在日志里留一行原因。
+      （2026-09-21 实测：新装的软件第一次点「生成报告」就是空仓库，
+       旧写法直接 KeyError: rating 崩掉，整批报告一张表都没有。）
+    """
+    specs = {
+        "豆瓣_评分分布": lambda: douban.rating_distribution(df),
+        "豆瓣_年代分布": lambda: douban.decade_distribution(df),
+        "百度_名次变化": lambda: common.rank_changes(df, "baidu_realtime"),
+        "豆瓣_投票增长": lambda: douban.votes_growth(df),
+        "B站_播放量分布": lambda: bilibili.score_distribution(df),
+        "B站_名次相关": lambda: bilibili.rank_score_table(df),
+        "B站_播放量增长": lambda: bilibili.views_growth(df),
+        "掘金_作者上榜": lambda: hot.author_ranking(df),
+        "头条_标签构成": lambda: hot.label_composition(df),
+        "头条_热度相关": lambda: hot.heat_rank_check(df),
+        "百度_标签构成": lambda: baidu.tag_composition(df),
+        "百度_分类构成": lambda: baidu.category_composition(df),
+        "跨源_覆盖情况": lambda: cross.daily_coverage(df),
+        "跨源_同日Top5": lambda: cross.top_by_source(df, n=5),
+        "跨源_同话题": lambda: cross.cross_topic(df, n=10),
+        "跨源_翻新速度": lambda: cross.churn_rate(df, n=10),
     }
+    tables = {}
+    for name, make in specs.items():
+        try:
+            tables[name] = make()
+        except Exception as exc:      # 空仓库 / 缺列 / 口径问题 → 跳过这一张，别毁整批
+            logger.warning("统计表「%s」跳过：%s: %s", name, type(exc).__name__, exc)
+    return tables
 
 
 def _fill_blank(table, col):
@@ -167,6 +180,22 @@ def main() -> int:
     df = load_boards()
     out_dir = OUT_ROOT / time.strftime("%Y-%m-%d_%H-%M")
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # ★ 空仓库不是错误：新装的软件第一次点「生成报告」就是这样。
+    #   给一句人话 + 一个提示页，退出码 0（和「筛选看板」那边的做法一致）。
+    if df.empty:
+        print("仓库里还没有数据：data/ 下没读到任何快照。")
+        print("先点界面上的「开始采集」跑一次，再回来生成报告。")
+        (out_dir / "看板.html").write_text(
+            "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'>"
+            "<title>还没有数据</title></head>"
+            "<body style=\"font-family:'Microsoft YaHei',sans-serif;padding:40px;\">"
+            "<h2 style='margin:0 0 12px'>还没有数据，暂时画不出图</h2>"
+            "<p style='font-size:15px;line-height:1.8'>仓库里没有读到任何快照。<br>"
+            "先跑一次采集（界面上的「开始采集」），再回来生成报告。</p></body></html>",
+            encoding="utf-8")
+        logger.warning("仓库为空：只生成了提示页 %s", out_dir / "看板.html")
+        return 0
 
     tables = build_tables(df)
 

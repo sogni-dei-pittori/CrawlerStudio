@@ -119,6 +119,50 @@ def make_responsive(path) -> None:
     path.write_text(html, encoding="utf-8")
 
 
+def write_manifest(title, args, df, view, tables, chart_files, cross_charts) -> None:
+    """写 _清单.json —— 界面靠它填指标卡、表下拉、单图路径。
+
+    ★ 没数据时也要写：界面是按固定路径找这个文件的，缺了就会在日志里报
+      「没找到 views 下的 _清单.json，生成可能失败了」，而真实情况只是「仓库里还没有数据」。
+      所以空仓库 / 筛空时也写一份（表为空、指标为 0），界面就能正常显示提示页。
+    """
+    rows = int(len(view)) if view is not None else 0
+    snapshot_n = int(view["snapshot_ts"].nunique()) if rows else 0
+    dataset_n = int(view["dataset"].nunique()) if rows else 0
+    date_range = f"{view['date'].min()} ~ {view['date'].max()}" if rows else "（还没有数据）"
+    MANIFEST.write_text(json.dumps({
+        "标题": title,
+        "筛选": {"起始": args.start, "结束": args.end, "数据源": args.datasets, "TopN": args.top},
+        "指标": {
+            "全量行数": int(len(df)),
+            "当前视图": rows,
+            "数据集": dataset_n,
+            "快照数": snapshot_n,
+            "日期范围": date_range,
+        },
+        "表": [
+            {
+                "名字": name,
+                "行数": len(table),
+                "列数": len(table.columns),
+                "csv": f"表/{name}.csv",
+                "图": chart_files.get(name),
+            }
+            for name, table in (tables or {}).items()
+        ],
+        "跨源对比": {
+            "页面": CROSS_HTML.name,
+            "有几张图": len(cross_charts or []),
+            "同日TopN": {
+                "表": "跨源_同日TopN",
+                "csv": "表/跨源_同日TopN.csv",
+                "行数": len(tables["跨源_同日TopN"]) if tables and "跨源_同日TopN" in tables else 0,
+                "n": min(args.top, 10),
+            },
+        },
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="按筛选条件生成看板")
     ap.add_argument("--start", default=None, help="起始日期 YYYY-MM-DD（含）")
@@ -136,6 +180,7 @@ def main() -> int:
     if df.empty:
         print("仓库里还没有数据：先跑一次采集（或点界面上的「开始采集」）。")
         write_notice(title, "仓库里还没有数据。<br>先跑一次采集，再回来生成筛选看板。")
+        write_manifest(title, args, df, None, {}, {}, [])   # ★ 空仓库也写清单，界面才不会报"生成失败"
         return 0
 
     view = filter_boards(df, args.start, args.end, datasets)
@@ -148,6 +193,7 @@ def main() -> int:
         write_notice(title, f"当前筛选没有数据：{args.start} ~ {args.end}。<br>"
                             f"数据实际范围是 {df['date'].min()} ~ {df['date'].max()}，"
                             "把日期范围放宽一点再试。")
+        write_manifest(title, args, df, view, {}, {}, [])   # ★ 筛空也写清单
         return 0
 
     tables = report.build_tables(view)
@@ -191,38 +237,7 @@ def main() -> int:
 
     report.write_meta(view, tables, OUT_DIR)
 
-    # ★ 清单：界面靠它填指标卡、表下拉、单图预览
-    MANIFEST.write_text(json.dumps({
-        "标题": title,
-        "筛选": {"起始": args.start, "结束": args.end, "数据源": datasets, "TopN": args.top},
-        "指标": {
-            "全量行数": len(df),
-            "当前视图": len(view),
-            "数据集": int(view["dataset"].nunique()),
-            "快照数": int(view["snapshot_ts"].nunique()),
-            "日期范围": f"{view['date'].min()} ~ {view['date'].max()}",
-        },
-        "表": [
-            {
-                "名字": name,
-                "行数": len(table),
-                "列数": len(table.columns),
-                "csv": f"表/{name}.csv",
-                "图": chart_files.get(name),
-            }
-            for name, table in tables.items()
-        ],
-        "跨源对比": {
-            "页面": CROSS_HTML.name,
-            "有几张图": len(cross_charts),
-            "同日TopN": {
-                "表": "跨源_同日TopN",
-                "csv": "表/跨源_同日TopN.csv",
-                "行数": len(tables["跨源_同日TopN"]),
-                "n": min(args.top, 10),
-            },
-        },
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    write_manifest(title, args, df, view, tables, chart_files, cross_charts)
 
     print(f"已生成：{OUT_HTML}（{len(charts)} 张图）")
     print(f"统计表 {len(tables)} 份 -> {TABLES_DIR}")

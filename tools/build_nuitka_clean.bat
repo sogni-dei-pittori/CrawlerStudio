@@ -1,15 +1,17 @@
 @echo off
-REM --- CrawlerStudio: INCREMENTAL rebuild (fast, keeps old build output) ---
+REM --- CrawlerStudio: CLEAN rebuild (deletes build_nuitka first) ---
+REM Use this for the first build, after changing build flags, or when something looks broken.
 REM English only in .bat files (cmd parses them as ANSI).
 cd /d "%~dp0.."
 
 echo ============================================================
-echo  CrawlerStudio - INCREMENTAL rebuild with Nuitka
-echo  (keeps build_nuitka; only changed modules get recompiled)
+echo  CrawlerStudio - CLEAN rebuild with Nuitka
+echo  (deletes build_nuitka, then builds everything from scratch)
 echo ============================================================
 echo.
-echo Building... do NOT close this window.
-echo First build from scratch takes 20-40 min; an incremental one ~3-10 min.
+echo Removing previous build output...
+if exist build_nuitka rmdir /s /q build_nuitka
+echo Done. Building now... do NOT close this window (20-40 min).
 echo.
 
 .venv\Scripts\python.exe -m nuitka ^

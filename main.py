@@ -23,13 +23,19 @@ from gui.help_text import HELP_HTML
 from gui.url_crawler import UrlCrawler
 from gui.worker import ScriptRunner
 from utils.housekeeping import clean_empty_dirs, clean_stale_lock, ensure_data_root
-from utils.paths import BASE_DIR  # ★ 打包后自动指向 exe 所在目录
+from utils.paths import BASE_DIR, is_frozen, self_exe  # ★ 打包后自动指向 exe 所在目录
 from warehouse import audit
 from web_crawler import check_url
 
 TOP_LEVEL_MODULES = {"run_daily"}
-FROZEN = getattr(sys, "frozen", False)  # ★ 打包成 exe 后 PyInstaller 会设这个属性
-PYTHON = sys.executable if FROZEN else str(BASE_DIR / ".venv" / "Scripts" / "python.exe")
+# ★ 千万不要用 getattr(sys, "frozen", False)：那个属性只有 PyInstaller 会设，
+#   Nuitka 编译出来的 exe 没有它 → 在编译版里 FROZEN 会一直是 False，
+#   于是黑窗不藏、按钮还会用 -m 去起子进程（等于又弹一个界面）。
+#   统一用 utils/paths.is_frozen()：PyInstaller / Nuitka / 直接跑 三种情况都判对。
+FROZEN = is_frozen()
+# ★ 不能用 sys.executable：Nuitka 会把它报成 dist 目录下的 python.exe（文件不存在）
+#   self_exe() 依次试 sys.executable -> sys.argv[0]，三种环境都拿到对的程序
+PYTHON = str(self_exe())
 DATA_DIR = BASE_DIR / "data"
 PREVIEW_ROWS = 200  # 资源管理里预览 CSV 的前多少行
 TABLE_PREVIEW_ROWS = 500  # 筛选看板里预览统计表的前多少行
@@ -961,10 +967,27 @@ def run_task(module: str, extra: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    # ---- 诊断：CrawlerStudio.exe --probe（看清编译版到底怎么判"我是不是打包版"）----
+    if len(sys.argv) >= 2 and sys.argv[1] == "--probe":
+        print("[probe] sys.frozen     =", getattr(sys, "frozen", "（没有这个属性）"))
+        print("[probe] __compiled__   =", "__compiled__" in globals())
+        print("[probe] sys.executable =", sys.executable)
+        print("[probe] BASE_DIR       =", BASE_DIR)
+        print("[probe] is_frozen()    =", is_frozen())
+        print("[probe] FROZEN         =", FROZEN)
+        print("[probe] sys.argv[0]    =", sys.argv[0])
+        print("[probe] self_exe()     =", self_exe(), "（存在：%s）" % self_exe().is_file())
+        print("[probe] PYTHON         =", PYTHON, "（存在：%s）" % Path(PYTHON).is_file())
+        print("[probe] 子进程会用     =", "--task" if FROZEN else "-m")
+        sys.exit(0)
+
     if len(sys.argv) >= 3 and sys.argv[1] == "--task":  # ★ 被自己当解释器调起来
         rest = sys.argv[3:]
-        if "--silent" in rest:  # 定时任务专用：把黑窗藏掉
-            hide_console()
+        # ★ 无条件藏黑窗（不只是 --silent）：界面调起来的子任务也不该弹黑窗。
+        #   hide_console() 内部会判断"这个控制台是不是我独占的"，
+        #   所以从你自己的终端手敲 --task 时，它不会把你的终端藏掉。
+        hide_console()
+        if "--silent" in rest:  # 定时任务专用参数：吃掉它，别传给模块
             rest = [a for a in rest if a != "--silent"]
         sys.exit(run_task(sys.argv[2], rest))
 

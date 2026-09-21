@@ -49,3 +49,7 @@ desktop.ini
 # Nuitka build output (do not commit)
 build_nuitka/
 tools/nuitka_test/
+
+# Inno Setup 产物（安装包很大，别进仓库）
+installer/
+assets/installer/

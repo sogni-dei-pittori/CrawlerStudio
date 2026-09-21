@@ -6,7 +6,7 @@ import subprocess  # 标准库：用来"启动另一个程序"
 import sys  # 标准库：用来知道"当前用的是哪个 python"
 from utils.childio import child_env, decode_output
 from utils.logger import get_logger
-from utils.paths import BASE_DIR
+from utils.paths import BASE_DIR, is_frozen, self_exe
 import os
 import time
 
@@ -66,10 +66,10 @@ try:
         script_path = BASE_DIR / script_name
         logger.info("---开始采集：%s---", script_name)
         try:
-            if getattr(sys, "frozen", False):                       # ★ 打包后 exe 自己当解释器
-                cmd = [sys.executable, "--task", script_name[:-3]]  # 去掉 .py 就是模块名
+            if is_frozen():                       # ★ 打包后 exe 自己当解释器
+                cmd = [str(self_exe()), "--task", script_name[:-3]]  # 去掉 .py 就是模块名
             else:
-                cmd = [sys.executable, str(script_path)]
+                cmd = [str(self_exe()), str(script_path)]
             result = subprocess.run(
                 cmd,
                 capture_output=True,
@@ -106,10 +106,10 @@ finally:
 # ---- 采集完顺手把报告也生成出来：第二天打开看板就是新的 ----
 # 就算上面有站点失败，报告也照跑（仓库里有多少数据就分析多少）
 logger.info("---开始生成报告---")
-if getattr(sys, "frozen", False):
-    report_cmd = [sys.executable, "--task", "analysis.report"]      # 打包后：exe 自己当解释器
+if is_frozen():
+    report_cmd = [str(self_exe()), "--task", "analysis.report"]      # 打包后：exe 自己当解释器
 else:
-    report_cmd = [sys.executable, "-m", "analysis.report"]          # 开发时：python -m analysis.report
+    report_cmd = [str(self_exe()), "-m", "analysis.report"]          # 开发时：python -m analysis.report
 try:
     result = subprocess.run(
         report_cmd,

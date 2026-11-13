@@ -88,7 +88,9 @@ def audit() -> dict:
     on_disk = {(d.name, f.name) for d in DATA_ROOT.iterdir() if d.is_dir() for f in d.glob("*/*.csv")}
     registered = {(e.domain, e.filename) for e in SOURCES}
 
-    empty_dirs, others, legacy = [], [], []
+    empty_dirs: list[str] = []
+    others: list[str] = []
+    legacy: list[str] = []
     for entry in SOURCES:
         d = DATA_ROOT / entry.domain
         if not d.is_dir():

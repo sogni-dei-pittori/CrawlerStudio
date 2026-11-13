@@ -8,7 +8,7 @@ TEXT_COL_HINTS = ("content", "text", "正文", "内容", "摘要", "title", "标
                   "body", "comment", "评论")
 
 
-def _guess_text_cols(fieldnames: list[str]) -> list[str]:
+def _guess_text_cols(fieldnames) -> list[str]:
     hits = [c for c in fieldnames if c and c.strip().lower() in TEXT_COL_HINTS]
     return hits
 

@@ -79,6 +79,35 @@ class TestParseTop250Movie:
     def test_empty_html_yields_no_rows(self):
         assert parse_top250_movie("<html></html>") == []
 
+    def test_malformed_row_does_not_kill_the_whole_page(self):
+        """回归：一条缺字段的条目曾会让整页 250 条全部解析失败。
+
+        豆瓣会插广告位、条目会失效，此时 select_one() 返回 None。
+        原实现直接 .get_text()，抛 AttributeError 把好的条目一起带走。
+        现在缺的字段记空字符串，条目本身保留。
+        """
+        html = """
+        <div class="item"><div class="pic"><em>1</em></div>
+          <div class="info"><div class="hd"><a href="/x"><span class="title">正常条目</span></a></div>
+          <div class="bd"><p>导演: 某人</p><div><span class="rating_num">9.0</span></div></div></div></div>
+        <div class="item"><div class="pic"><em>2</em></div>
+          <div class="info"><div class="hd"><a href="/y"><span class="title">缺评分条目</span></a></div>
+          <div class="bd"><p>导演: 某人</p></div></div></div>
+        """
+        rows = parse_top250_movie(html)
+
+        assert len(rows) == 2
+        assert rows[1]["rating"] == ""      # 缺失 → 空字符串，不是崩
+        assert rows[0]["rating"] == "9.0"
+
+    def test_item_without_title_is_skipped(self):
+        """连标题都没有的节点是广告位，不该进数据。"""
+        html = """
+        <div class="item"><div class="pic"><em>1</em></div>
+          <div class="info"><div class="bd"><p>广告</p></div></div></div>
+        """
+        assert parse_top250_movie(html) == []
+
 
 # ---------------------------------------------------------------- 豆瓣 Top250 图书
 BOOK_HTML = """

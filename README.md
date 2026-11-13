@@ -38,7 +38,13 @@ jieba · python-docx · pypdf（文本分析）· Nuitka / PyInstaller / Inno Se
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+# 开发（跑测试、检查代码）时再加装：
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 ```
+
+依赖分三个文件：`requirements.txt`（人工维护的直接依赖）、
+`requirements-lock.txt`（完整版本锁定，用于复现环境）、
+`requirements-dev.txt`（pytest / ruff / mypy）。
 
 ## 使用方法
 
@@ -78,6 +84,24 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m utils.housekeeping   # 清理空目录与过期采集锁
 .\.venv\Scripts\python.exe -m warehouse.boards     # 打印长表规模、各数据集行数与体检结果（需 data/ 里已有数据）
 .\.venv\Scripts\python.exe -m analysis.common      # 打印各数据集行数与频次表自检
+.\.venv\Scripts\python.exe -m utils.net            # 打印各 UA 的请求头自洽性 + robots 判定实测
+```
+
+### 开发与质量检查
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest                    # 跑单元测试（230 个，约 6 秒）
+.\.venv\Scripts\python.exe -m pytest --cov              # 带覆盖率
+.\.venv\Scripts\python.exe -m ruff check .              # 静态检查（当前 0 告警）
+.\.venv\Scripts\python.exe -m ruff check . --fix        # 自动修复
+.\.venv\Scripts\python.exe -m mypy .                    # 类型检查（核心层 44 个文件零告警）
+pre-commit install                                # 可选：提交前自动跑上面两项
+```
+
+测试不联网、不读你的 `data/` 目录 —— 涉及磁盘的用例都在临时目录里造迷你仓库，
+涉及网络的用例全部用替身。所以它可以随时跑，不会污染数据、也不会因为站点挂了而失败。
+
+详细的质量数据见 `docs/testing.md`。
 ```
 
 ### 计划任务与开机自启
@@ -142,12 +166,14 @@ robocopy assets       dist\CrawlerStudio\assets       app.ico
 
 ```
 crawler/
-├── main.py                   桌面端入口（PySide6）
+├── main.py                   程序入口（91 行）：解析参数 → 起界面或起子任务
 ├── gui/                      桌面端组件
+│   ├── main_window.py        主窗口（各标签页、托盘、任务编排）
+│   ├── launcher.py           打包环境判定、`--task` / `--probe` 子命令
 │   ├── worker.py             外部脚本调用与输出转发（QProcess）
 │   ├── url_crawler.py        URL 采集线程
 │   └── help_text.py          界面内「使用说明」文案
-├── run_daily.py              采集入口：依次运行各站点脚本，随后生成报告
+├── run_daily.py              采集入口：并发运行各站点脚本，随后生成报告
 ├── baidu_api.py              百度热搜榜
 ├── bilibili_rank.py          B 站全站日榜
 ├── juejin_api.py             掘金热榜
@@ -170,7 +196,12 @@ crawler/
 │   ├── text.py               语料指标：六项统计 + 词频 + 句长分布（纯函数）
 │   └── text_report.py        文本分析报告入口：指标 + 每份文档的统计表 → 图表
 ├── charts/basic.py           图表层：统计表 → pyecharts 图
-├── utils/                    工具层：路径、会话与 robots、列约定、存档、日志、清理、子进程输出编码
+├── utils/                    工具层
+│   ├── http.py               重试 / 退避 / 按域名限速（挂在 requests 适配器上）
+│   ├── net.py                会话与请求头自洽、robots.txt 判定与缓存
+│   ├── schema.py             列约定与 URL 规范化
+│   ├── paths.py logger.py childio.py dirs.py site_csv.py housekeeping.py
+├── tests/                    单元测试（230 个用例，pytest）
 ├── tools/                    计划任务、开机自启、图标生成、打包与安装包脚本
 │   ├── build_nuitka.bat      增量编译（Nuitka）
 │   ├── build_nuitka_clean.bat 全量编译（Nuitka）
@@ -222,5 +253,8 @@ logs/             运行日志与采集锁
 
 | 文件 | 内容 |
 |---|---|
+| `docs/architecture.md` | 分层结构、数据流、关键设计决策（含流程图） |
+| `docs/algorithms.md` | 算法与统计口径：名次跨度、翻新率、LCS、Spearman、语料指标、编码探测 |
+| `docs/testing.md` | 测试与质量报告：覆盖率分布、性能基准、静态检查、已知局限 |
 | `sites.md` | 站点清单、robots 实测记录、字段与接入说明 |
 | 界面内「使用说明」页 | 面向使用者的常见问题解答 |

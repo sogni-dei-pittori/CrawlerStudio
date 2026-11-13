@@ -5,8 +5,8 @@ from .common import clean_text
 
 try:
     import pypdf
-except ImportError:
-    pypdf = None
+except ImportError:      # 可选依赖：没装时抽取函数返回「缺失」记录，而不是让批量处理整体失败
+    pypdf = None     # type: ignore[assignment]
 
 
 def extract_pdf(path: Path, doc_id: str = "", rel: str = "") -> list[dict]:

@@ -5,8 +5,8 @@ from .common import clean_text
 
 try:
     import docx
-except ImportError:
-    docx = None
+except ImportError:      # 可选依赖：没装时抽取函数返回「缺失」记录，而不是让批量处理整体失败
+    docx = None     # type: ignore[assignment]
 
 
 def _table_rows(table) -> list[str]:

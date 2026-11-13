@@ -28,6 +28,7 @@ from urllib.parse import urlsplit
 
 import requests
 from requests.adapters import HTTPAdapter
+from requests.models import PreparedRequest, Response
 from urllib3.util.retry import Retry
 
 # ---- 默认策略 ----
@@ -93,9 +94,20 @@ class RateLimitedAdapter(HTTPAdapter):
         self.limiter = limiter or RateLimiter()
         super().__init__(**kwargs)
 
-    def send(self, request, **kwargs):
-        self.limiter.wait(request.url)
-        return super().send(request, **kwargs)
+    def send(
+        self,
+        request: PreparedRequest,
+        stream: bool = False,
+        timeout: float | tuple[float | None, float | None] | None = None,
+        verify: bool | str = True,
+        cert: str | tuple[str, str] | None = None,
+        proxies: dict[str, str] | None = None,
+    ) -> Response:
+        # 签名必须和父类一致（否则 mypy 报 override 不兼容，
+        # 而且 requests 内部是按关键字传这些参数的）
+        self.limiter.wait(request.url or "")
+        return super().send(request, stream=stream, timeout=timeout, verify=verify,
+                            cert=cert, proxies=proxies)
 
 
 def build_retry(total: int = DEFAULT_RETRIES) -> Retry:
@@ -105,17 +117,14 @@ def build_retry(total: int = DEFAULT_RETRIES) -> Retry:
     1.x 叫 `respect_retry_after`，这里显式兼容两种，避免依赖版本差异导致
     「以为在听服务器的、其实没有」。
     """
-    common = {
-        "total": total,
-        "backoff_factor": BACKOFF_FACTOR,
-        "status_forcelist": sorted(RETRY_STATUS),
-        "allowed_methods": frozenset({"GET", "HEAD", "OPTIONS"}),
-        "raise_on_status": False,       # 重试用尽后把响应交回去，由调用方判 status_code
-    }
-    try:
-        return Retry(**common, respect_retry_after_header=True)
-    except TypeError:                    # 老版本 urllib3
-        return Retry(**common, respect_retry_after=True)
+    return Retry(
+        total=total,
+        backoff_factor=BACKOFF_FACTOR,
+        status_forcelist=sorted(RETRY_STATUS),
+        allowed_methods=frozenset({"GET", "HEAD", "OPTIONS"}),
+        raise_on_status=False,          # 重试用尽后把响应交回去，由调用方判 status_code
+        respect_retry_after_header=True,  # 听 Retry-After（urllib3 >= 1.26 都支持）
+    )
 
 
 def mount_retry(sess: requests.Session, retries: int = DEFAULT_RETRIES,
@@ -140,5 +149,7 @@ def get(url: str, sess: requests.Session | None = None, *, timeout=DEFAULT_TIMEO
     —— 那会让采集进程在某些站点上无限挂起，而定时任务只有十分钟总预算。
     这个函数的默认值把「必须给超时」变成不需要每次想起的事。
     """
-    sess = sess or requests
+    # 没传 session 就直接用模块级 requests.get（它内部会建临时 session）
+    if sess is None:
+        return requests.get(url, timeout=timeout, **kwargs)
     return sess.get(url, timeout=timeout, **kwargs)

@@ -70,17 +70,23 @@ def parse_board(html: str, link_keyword: str = "/video/"):
             continue                        # 第一格不是"名次"的行不算
 
         link = cells[2].find("a", href=True)
-        if link is None or link_keyword not in link["href"]:
+        if link is None:
+            continue
+        # ★ href 可能是 list（bs4 对多值属性会返回列表，如 class="a b"），
+        #   直接拿去切片会报 TypeError，所以统一转成字符串
+        raw_href = link.get("href", "")
+        href = raw_href if isinstance(raw_href, str) else " ".join(str(v) for v in (raw_href or []))
+        if link_keyword not in href:
             continue                        # 不是目标榜单的条目
 
         heat_node = cells[2].select_one("div.item-desc")
         heat_text = heat_node.get_text(strip=True) if heat_node else ""
-        aid, bvid = extract_video_id(link["href"])
+        aid, bvid = extract_video_id(href)
 
         rows.append({
             "rank": int(rank_match.group(1)),
             "title": link.get_text(strip=True),
-            "url": link["href"],
+            "url": href,
             "score": parse_count(heat_text),   # 榜单热度（B站榜 = 播放量，单位"万"）
             "heat_text": heat_text,            # 原始文本，留作核对
             "aid": aid,

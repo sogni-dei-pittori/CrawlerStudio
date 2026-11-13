@@ -7,10 +7,15 @@
   开发模式（真 python）下那个环境变量是有效的，打包后就失效了，
   所以不能"约定子进程输出 utf-8"，只能"拿到什么字节就按什么解"。
 """
+from collections.abc import Mapping
 
 
-def child_env(base: dict | None = None) -> dict:
-    """准备子进程的环境变量：能让它说 utf-8 的都设上（设不上也没关系，读的时候会兜底）。"""
+def child_env(base: Mapping[str, str] | None = None) -> dict[str, str]:
+    """准备子进程的环境变量：能让它说 utf-8 的都设上（设不上也没关系，读的时候会兜底）。
+
+    参数是 Mapping 而不是 dict —— 调用方通常直接传 `os.environ`，
+    那是 os._Environ，不是 dict，但能当 Mapping 用。
+    """
     env = dict(base or {})
     env["PYTHONIOENCODING"] = "utf-8"      # 开发模式下有效
     env["PYTHONUTF8"] = "1"                # UTF-8 模式，打包后也管用

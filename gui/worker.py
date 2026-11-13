@@ -56,9 +56,11 @@ class ScriptRunner(QObject):
         env.insert("PYTHONUTF8", "1")                      #   还得按实际字节解码（utils/childio.py）
         proc.setProcessEnvironment(env)
 
-        # stdout+stderr 合并，顺序才不乱。常量名在 PySide6 的类型桩里没有，
-        # 但运行时存在（枚举项），所以忽略这一条类型告警。
-        proc.setProcessChannelMode(QProcess.MergedChannels)  # type: ignore[attr-defined]
+        # stdout+stderr 合并，顺序才不乱。
+        # 用完整枚举路径：Qt 6 里 QProcess.MergedChannels 只是兼容别名，
+        # 类型桩只认 ProcessChannelMode.MergedChannels。写全了就不用 type: ignore ——
+        # CI 里不装 PySide6（模块变 Any）时，那条 ignore 反而会变成「多余的 ignore」报错。
+        proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
         proc.readyReadStandardOutput.connect(self._on_output)   # ★ 有输出就触发，不阻塞
         proc.finished.connect(self._on_finished)                # ★ 用方法，不用 lambda
         proc.errorOccurred.connect(self._on_error)              # ★ 启动失败也要发信号

@@ -4,7 +4,7 @@
 另可对本地文档（docx / txt / md / csv / 文字型 PDF）做语料文本分析；
 带 PySide6 桌面端，用 Nuitka 编译为免安装程序，并提供 Inno Setup 安装包。
 
-> 当前版本 **0.2.0**
+> 当前版本 **0.3.0**
 > 打包配置：`CrawlerStudio.spec`（PyInstaller）／`tools\build_nuitka.bat`（Nuitka）／`tools\installer\CrawlerStudio.iss`（安装包）
 
 ## 功能

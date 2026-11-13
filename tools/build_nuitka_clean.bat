@@ -25,7 +25,7 @@ echo.
   --include-package=analysis --include-package=extract --include-package=warehouse ^
   --nofollow-import-to=matplotlib --nofollow-import-to=streamlit --nofollow-import-to=selenium ^
   --company-name="Personal Study Project" --product-name="CrawlerStudio" ^
-  --file-version=0.2.0 --product-version=0.2.0 ^
+  --file-version=0.3.0 --product-version=0.3.0 ^
   --windows-icon-from-ico=assets\app.ico ^
   --jobs=8 --lto=no ^
   main.py

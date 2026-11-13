@@ -19,10 +19,14 @@ def read_text_any(path) -> tuple[str, str]:
     has_bom = raw.startswith(b"\xef\xbb\xbf")
     for enc in ENCODINGS:
         try:
-            name = "utf-8(BOM)" if (enc == "utf-8-sig" and has_bom) else enc
-            return raw.decode(enc), name
+            decoded = raw.decode(enc)
         except UnicodeDecodeError:
             continue
+        # utf-8-sig 对「带 BOM」和「不带 BOM」的 UTF-8 都能解，所以只看它能不能解
+        # 分辨不出到底是哪种；按实际有没有 BOM 来标注，日志里才说得清。
+        if enc == "utf-8-sig":
+            return decoded, ("utf-8(BOM)" if has_bom else "utf-8")
+        return decoded, enc
     return raw.decode("utf-8", errors="replace"), "utf-8(replace)"
 
 

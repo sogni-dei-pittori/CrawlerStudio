@@ -1,0 +1,63 @@
+name: CI
+
+# 每次 push / PR 自动跑：静态检查 → 类型检查 → 单元测试。
+# 这三个命令本地跑一遍不到 30 秒，放进 CI 的价值是「不依赖某个人记得跑」。
+
+on:
+  push:
+    branches: [main, "refactor/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  # 同一分支连续 push 时取消上一次，省 runner 时间
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: lint / type / test (py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows 是主要目标平台（QProcess 路径、编码行为都不同），
+        # Linux 跑得快，两边都跑能提前暴露平台相关问题。
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.11", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: 安装依赖
+        # 只装测试与检查需要的部分。GUI 依赖 PySide6 体积大（数百 MB），
+        # 而界面层不参与 CI 检查，装了纯属浪费 runner 时间。
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pandas requests beautifulsoup4 lxml jieba python-docx pypdf pyecharts
+          python -m pip install pytest pytest-cov ruff mypy pandas-stubs types-requests
+
+      - name: 静态检查（ruff）
+        run: python -m ruff check . --output-format=github
+
+      - name: 类型检查（mypy）
+        run: python -m mypy .
+
+      - name: 单元测试
+        # 不跑标记为 network 的用例：CI 环境不该依赖第三方站点可用性
+        run: python -m pytest -q -m "not network" --cov --cov-report=term-missing
+
+      - name: 保留覆盖率报告
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: .coverage
+          if-no-files-found: ignore

@@ -5,10 +5,9 @@
 """
 from __future__ import annotations
 
+import itertools
 import threading
 import time
-
-import pytest
 
 from utils.http import (
     DEFAULT_TIMEOUT,
@@ -126,7 +125,7 @@ class TestRateLimiter:
         stamps.sort()
         assert len(stamps) == 4
         # 相邻两次的实际间隔必须不小于最小间隔（留 20ms 容差给线程调度）
-        gaps = [b - a for a, b in zip(stamps, stamps[1:], strict=False)]
+        gaps = [b - a for a, b in itertools.pairwise(stamps)]
         assert all(gap >= 0.04 for gap in gaps), gaps
 
 
@@ -187,4 +186,4 @@ class TestGetHelper:
 
 
 def test_retry_status_set_matches_documentation():
-    assert RETRY_STATUS == frozenset({429, 500, 502, 503, 504})
+    assert frozenset({429, 500, 502, 503, 504}) == RETRY_STATUS

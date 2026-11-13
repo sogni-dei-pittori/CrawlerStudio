@@ -2,13 +2,14 @@
 用来定时爬取
 """
 
+import os
 import subprocess  # 标准库：用来"启动另一个程序"
 import sys  # 标准库：用来知道"当前用的是哪个 python"
+import time
+
 from utils.childio import child_env, decode_output
 from utils.logger import get_logger
 from utils.paths import BASE_DIR, is_frozen, self_exe
-import os
-import time
 
 logger = get_logger("run_daily")
 

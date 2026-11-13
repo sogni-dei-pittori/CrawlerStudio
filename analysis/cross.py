@@ -70,7 +70,7 @@ def cross_topic(df, date=None, n=10, min_lcs=5) -> pd.DataFrame:
             for r1, s1 in t1:
                 for r2, s2 in t2:
                     L = lcs_len(s1, s2)
-                    if L >= min_lcs:
+                    if min_lcs <= L:
                         rows.append({"date": d, "源A": n1, "名次A": r1, "标题A": s1,
                                      "源B": n2, "名次B": r2, "标题B": s2, "公共子串长度": L})
     return pd.DataFrame(rows)

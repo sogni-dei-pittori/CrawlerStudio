@@ -1,0 +1,134 @@
+[project]
+name = "crawler-studio"
+version = "0.3.0"
+description = "多站点榜单采集、归档、统计分析与可视化工具"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "fugo" }]
+
+# 运行期依赖：只列代码里真正 import 的包。
+# 注意 lxml —— 代码里没有直接 import，但 parsers/ 用 "lxml" 作为 BeautifulSoup 的解析器，
+# 少了它 bs4 会静默退回 html.parser，解析结果和线上不一致。这类「隐形依赖」必须写在这里。
+dependencies = [
+    "requests>=2.32",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.0",
+    "pandas>=2.2",
+    "pyecharts>=2.0",
+    "PySide6>=6.7",
+    "jieba>=0.42",
+    "python-docx>=1.1",
+    "pypdf>=4.0",
+    "pillow>=10.0",
+    "streamlit>=1.35",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pandas-stubs>=2.2",
+    "types-requests>=2.32",
+]
+
+[project.scripts]
+crawler-studio = "main:main"
+
+# ---------------- 构建 ----------------
+# 不打包成 wheel（这是个应用而非库），只给工具链读配置用
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = []
+packages = ["analysis", "charts", "extract", "gui", "parsers", "utils", "warehouse"]
+
+# ---------------- Ruff：格式化 + 静态检查 ----------------
+[tool.ruff]
+target-version = "py311"
+line-length = 110
+# 采集目录、打包中间产物、虚拟环境都不检查
+extend-exclude = [".venv", "build", "build_nuitka", "dist", "logs", "data", "reports", "views"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle 错误
+    "W",    # pycodestyle 警告
+    "F",    # pyflakes：未使用变量 / 未定义名字
+    "I",    # isort：import 排序
+    "B",    # flake8-bugbear：可变默认值、循环变量泄漏等真实 bug
+    "UP",   # pyupgrade：过时语法
+    "C4",   # 推导式写法
+    "SIM",  # 可简化代码
+    "RUF",  # ruff 自带规则
+]
+ignore = [
+    "E501",  # 行长交给 formatter，不单独报
+    "RUF001", # 全角标点在中文注释里是正常的
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# 中文注释里的全角符号、以及脚本入口里的 import 顺序，不强制
+"__init__.py" = ["F401"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ---------------- mypy：类型检查 ----------------
+# 说明：这个项目原本没有类型注解，一步到位开 strict 会产生几百条噪音。
+# 策略是「核心层严、UI 层宽」——先保证数据层不出错，界面层后续再收。
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+check_untyped_defs = true
+no_implicit_optional = true
+ignore_missing_imports = true
+exclude = ["^(\\.venv|build|build_nuitka|dist)/"]
+
+# 数据层：允许未注解函数体被检查，但暂不要求全注解
+[[tool.mypy.overrides]]
+module = ["utils.*", "warehouse.*", "analysis.*", "parsers.*", "extract.*"]
+check_untyped_defs = true
+disallow_untyped_defs = false
+
+# UI 层：PySide6 类型桩不完整，放宽
+[[tool.mypy.overrides]]
+module = ["gui.*", "main", "app"]
+disallow_untyped_defs = false
+check_untyped_defs = false
+
+# ---------------- pytest ----------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra --strict-markers"
+markers = [
+    "network: 需要真实联网的用例（默认跳过，用 -m network 才跑）",
+    "slow: 耗时较长的用例",
+]
+filterwarnings = [
+    "error::DeprecationWarning:analysis.*",  # 自己的代码里别用废弃 API
+]
+
+# ---------------- coverage ----------------
+[tool.coverage.run]
+source = ["analysis", "charts", "extract", "parsers", "utils", "warehouse"]
+omit = ["tests/*", "*/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]

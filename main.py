@@ -10,13 +10,35 @@ from pathlib import Path
 import pandas as pd
 from PySide6.QtCore import QDate, Qt, QUrl
 from PySide6.QtGui import QAction, QDesktopServices, QIcon
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDateEdit, QFileDialog,
-                               QFileSystemModel, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
-                               QMenu, QMessageBox, QPlainTextEdit, QPushButton, QSpinBox,
-                               QSplitter, QStackedWidget, QStyle, QSystemTrayIcon, QTableWidget,
-                               QTableWidgetItem, QTabWidget, QTextBrowser, QTreeView, QVBoxLayout,
-                               QWidget)
 from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QDateEdit,
+    QFileDialog,
+    QFileSystemModel,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QMenu,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QSpinBox,
+    QSplitter,
+    QStackedWidget,
+    QStyle,
+    QSystemTrayIcon,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextBrowser,
+    QTreeView,
+    QVBoxLayout,
+    QWidget,
+)
 
 from analysis.live_view import DATASET_LABELS  # 筛选看板的数据源清单（只此一份）
 from gui.help_text import HELP_HTML
@@ -630,7 +652,7 @@ class MainWindow(QMainWindow):
             #   指标卡就显示成 71725.0（难看），而且缺失数解析会报 ValueError
             metrics = pd.read_csv(latest / "语料_总体指标.csv",
                                    keep_default_na=False, dtype=str)
-            values = {str(k): str(v) for k, v in zip(metrics["指标"], metrics["值"])}
+            values = {str(k): str(v) for k, v in zip(metrics["指标"], metrics["值"], strict=True)}
             per_doc = pd.read_csv(latest / "语料_每份文件.csv", keep_default_na=False)
         except Exception as exc:                   # 报告被删/被占用都别让界面崩
             self.log.appendPlainText(f"[提示] 读报告失败：{type(exc).__name__}: {exc}")
@@ -979,8 +1001,8 @@ if __name__ == "__main__":
         print("[probe] is_frozen()    =", is_frozen())
         print("[probe] FROZEN         =", FROZEN)
         print("[probe] sys.argv[0]    =", sys.argv[0])
-        print("[probe] self_exe()     =", self_exe(), "（存在：%s）" % self_exe().is_file())
-        print("[probe] PYTHON         =", PYTHON, "（存在：%s）" % Path(PYTHON).is_file())
+        print("[probe] self_exe()     =", self_exe(), f"（存在：{self_exe().is_file()}）")
+        print("[probe] PYTHON         =", PYTHON, f"（存在：{Path(PYTHON).is_file()}）")
         print("[probe] 子进程会用     =", "--task" if FROZEN else "-m")
         sys.exit(0)
 

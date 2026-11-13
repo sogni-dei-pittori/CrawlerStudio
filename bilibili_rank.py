@@ -27,7 +27,7 @@ import pandas as pd
 from parsers.tophub import parse_board
 from utils.dirs import make_run_dir
 from utils.logger import get_logger
-from utils.net import describe_session, make_browser_session, is_allowed
+from utils.net import describe_session, is_allowed, make_browser_session
 from utils.schema import BOARD_COLUMNS, fill_core, order_columns, snapshot_of
 
 BOARD_ID = "74KvxwokxM"  # tophub 榜单编号：哔哩哔哩全站日榜

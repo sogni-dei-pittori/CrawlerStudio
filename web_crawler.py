@@ -1,13 +1,13 @@
-import re
-import requests
-import time
 import random
-from bs4 import BeautifulSoup, Comment
-from urllib.parse import urlparse, urljoin, urldefrag, parse_qs, urlencode, urlunparse
-from utils.site_csv import SiteCsvStore
-from utils.paths import BASE_DIR
-from utils.net import is_allowed, make_browser_session
+import re
+import time
+from urllib.parse import urljoin, urlparse, urlunparse
+
+from bs4 import BeautifulSoup
+
 from utils.logger import get_logger
+from utils.net import is_allowed, make_browser_session
+from utils.site_csv import SiteCsvStore
 
 logger = get_logger("web_crawler")
 
@@ -50,7 +50,9 @@ def get_html(base_domain, referer=None):
     for attempt in range(1, 5):
         try:
             resp = sess.get(base_domain, headers=headers, timeout=10)
-            if (resp.encoding or "").lower() in ("", "iso-8859-1"): resp.encoding = resp.apparent_encoding or 'utf-8'
+            if (resp.encoding or "").lower() in ("", "iso-8859-1"):
+                # requests 对未声明 charset 的响应默认按 ISO-8859-1 解，中文会乱码
+                resp.encoding = resp.apparent_encoding or 'utf-8'
             if resp.status_code != 429:
                 time.sleep(random.uniform(1, 5))
                 return resp
@@ -137,7 +139,8 @@ def check_url(raw):
         return False, f"「{host}」的域名后缀不对（例如 .com / .cn）"
 
     try:
-        parsed.port                             # 端口写成 :abc 这种会在这里报错
+        # 访问 port 才会真正解析端口，写成 :abc 这种在这里抛 ValueError
+        _ = parsed.port
     except ValueError:
         return False, f"端口号不对：{raw}"
     return True, normalize_url(text)
@@ -151,9 +154,10 @@ def resolve_internal_url(subpages_urls, base_domain, excluded_path_patterns=None
         parsed = urlparse(url)
         if parsed.scheme in ('http', 'https'):
             path = parsed.path.lower()
-            if not any(path.endswith(ext) for ext in EXCLUDED_EXTENSIONS):
-                if parsed_base.netloc.lower() == parsed.netloc.lower():
-                    new_subpages_urls.append(url)
+            # 同域 且 不是图片/压缩包这类静态资源，才算可以抓的子页面
+            if (not any(path.endswith(ext) for ext in EXCLUDED_EXTENSIONS)
+                    and parsed_base.netloc.lower() == parsed.netloc.lower()):
+                new_subpages_urls.append(url)
     return new_subpages_urls
 
 
@@ -177,12 +181,9 @@ def extract_text(soup):
 
 # 判断页面是否被封禁
 def is_blocked(resp):
-    if resp.status_code in (429, 403):
-        return True
-    elif any(keyword in resp.text for keyword in BLOCKED_KEYWORDS):
-        return True
-    else:
-        return False
+    return resp.status_code in (429, 403) or any(
+        keyword in resp.text for keyword in BLOCKED_KEYWORDS
+    )
 
 
 # 主函数

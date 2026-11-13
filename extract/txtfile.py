@@ -1,5 +1,6 @@
 """txt：一行 = 一条文本（空行跳过，但记数）。"""
 from pathlib import Path
+
 from .common import clean_text, read_text_any
 
 

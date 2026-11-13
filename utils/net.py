@@ -14,6 +14,7 @@ import re
 import time
 from urllib.parse import urlsplit, urlunsplit
 from urllib.robotparser import RobotFileParser
+
 import requests
 
 USER_AGENTS = [
@@ -242,12 +243,12 @@ if __name__ == "__main__":
         if info["browser"] == "firefox" and "sec-ch-ua" in headers:
             verdict = "MISMATCH: firefox must not send sec-ch-ua"
         elif info["browser"] in _BRANDS:
-            needle = 'v="%s"' % info["major"]
+            needle = f'v="{info["major"]}"'
             if "sec-ch-ua" not in headers or needle not in headers["sec-ch-ua"]:
                 verdict = "MISMATCH: version not in sec-ch-ua"
 
         print(f"[{i}] {info['browser']:7s} v{info['major']:<4s} "
-              f"{info['platform']:8s} mobile={str(info['mobile']):5s} "
+              f"{info['platform']:8s} mobile={info['mobile']!s:5s} "
               f"sec-ch-ua={headers.get('sec-ch-ua', '(none)')}  -> {verdict}")
 
     print("\n--- robots 检查 ---")

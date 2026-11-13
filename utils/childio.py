@@ -7,7 +7,6 @@
   开发模式（真 python）下那个环境变量是有效的，打包后就失效了，
   所以不能"约定子进程输出 utf-8"，只能"拿到什么字节就按什么解"。
 """
-import subprocess
 
 
 def child_env(base: dict | None = None) -> dict:

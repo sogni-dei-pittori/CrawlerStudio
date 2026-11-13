@@ -1,5 +1,6 @@
 """B站全站日榜分析（数据源 tophub）。"""
 import pandas as pd
+
 from analysis.common import latest_via, pick_via, spearman, value_counts_table
 
 DATASET = "bilibili_ranking"

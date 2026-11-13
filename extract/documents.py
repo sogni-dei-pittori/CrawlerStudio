@@ -1,17 +1,17 @@
-"""本地文档抽取总入口。用法：
+r"""本地文档抽取总入口。用法：
     python -m extract.documents 目录            # 抽取（默认目录：桌面\语料 或当前目录）
     python -m extract.documents 目录 --copy-raw # 顺便把原文件复制进快照
 """
 
 import argparse
 import hashlib
-import sys
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 
 from utils.paths import BASE_DIR
+
 from .common import count_chars
 from .csv_file import extract_csv
 from .docxfile import extract_docx

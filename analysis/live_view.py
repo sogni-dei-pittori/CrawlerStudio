@@ -126,7 +126,7 @@ def write_manifest(title, args, df, view, tables, chart_files, cross_charts) -> 
       「没找到 views 下的 _清单.json，生成可能失败了」，而真实情况只是「仓库里还没有数据」。
       所以空仓库 / 筛空时也写一份（表为空、指标为 0），界面就能正常显示提示页。
     """
-    rows = int(len(view)) if view is not None else 0
+    rows = len(view) if view is not None else 0
     snapshot_n = int(view["snapshot_ts"].nunique()) if rows else 0
     dataset_n = int(view["dataset"].nunique()) if rows else 0
     date_range = f"{view['date'].min()} ~ {view['date'].max()}" if rows else "（还没有数据）"
@@ -134,7 +134,7 @@ def write_manifest(title, args, df, view, tables, chart_files, cross_charts) -> 
         "标题": title,
         "筛选": {"起始": args.start, "结束": args.end, "数据源": args.datasets, "TopN": args.top},
         "指标": {
-            "全量行数": int(len(df)),
+            "全量行数": len(df),
             "当前视图": rows,
             "数据集": dataset_n,
             "快照数": snapshot_n,

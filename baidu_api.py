@@ -1,10 +1,12 @@
 import time
-from utils.net import is_allowed, make_browser_session
-from utils.dirs import make_run_dir
-from utils.schema import BOARD_COLUMNS, clean_url, order_columns, snapshot_of
-from utils.logger import get_logger
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+
+from utils.dirs import make_run_dir
+from utils.logger import get_logger
+from utils.net import is_allowed, make_browser_session
+from utils.schema import BOARD_COLUMNS, clean_url, order_columns, snapshot_of
 
 logger = get_logger("baidu")
 URL = "https://top.baidu.com/api/board?platform=wise&tab=realtime"

@@ -1,0 +1,15 @@
+# 开发期依赖：代码检查、类型检查、测试
+#
+# 安装（在装好 requirements.txt 之后）：
+#   pip install -r requirements-dev.txt
+#   pre-commit install        # 可选：提交时自动跑 ruff
+
+-r requirements.txt
+
+pytest>=8.0
+pytest-cov>=5.0
+ruff>=0.6
+mypy>=1.11
+pandas-stubs>=2.2
+types-requests>=2.32
+pre-commit>=3.7

@@ -1,10 +1,12 @@
 import time
-from utils.schema import BOARD_COLUMNS, order_columns, snapshot_of
-from utils.net import make_browser_session, describe_session, is_allowed
-from utils.dirs import make_run_dir
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+
+from utils.dirs import make_run_dir
 from utils.logger import get_logger
+from utils.net import describe_session, is_allowed, make_browser_session
+from utils.schema import BOARD_COLUMNS, order_columns, snapshot_of
 
 URL = "https://api.juejin.cn/content_api/v1/content/article_rank?category_id=1&type=hot&count=20"
 DOMAIN = "api.juejin.cn"

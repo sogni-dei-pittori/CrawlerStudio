@@ -3,8 +3,8 @@
 口径常量放模块顶部 —— 论文里要交代"评分怎么分箱、年份怎么取"。
 """
 import pandas as pd
-from analysis.common import pick
-from analysis.common import latest, value_counts_table
+
+from analysis.common import latest, pick, value_counts_table
 
 DATASET = "douban_movie_top250"
 

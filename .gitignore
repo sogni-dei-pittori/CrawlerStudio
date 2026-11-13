@@ -53,3 +53,10 @@ tools/nuitka_test/
 # Inno Setup 产物（安装包很大，别进仓库）
 installer/
 assets/installer/
+
+# ==================== 垃圾文件 ====================
+# 仓库根目录下的 .pyc 是历史遗留（不该被提交），规则见上面 *.py[cod]
+# 打包/安装产物
+installer/
+*.exe
+!assets/*.ico

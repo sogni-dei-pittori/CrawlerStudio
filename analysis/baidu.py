@@ -1,6 +1,7 @@
 """百度单源分析：标签构成、分类构成。"""
-from analysis.common import latest, value_counts_table
 import pandas as pd
+
+from analysis.common import latest, value_counts_table
 
 DATASET = "baidu_realtime"
 

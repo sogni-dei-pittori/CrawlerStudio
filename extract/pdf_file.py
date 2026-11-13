@@ -20,8 +20,8 @@ def extract_pdf(path: Path, doc_id: str = "", rel: str = "") -> list[dict]:
         if reader.is_encrypted:
             try:
                 reader.decrypt("")
-            except Exception:
-                raise RuntimeError("PDF 已加密， 需要密码")
+            except Exception as exc:  # 第三方库抛什么类型不确定，一律转成可读报错
+                raise RuntimeError("PDF 已加密，需要密码") from exc
         total, empty_pages = len(reader.pages), []
         for i, page in enumerate(reader.pages, start=1):
             text = clean_text(page.extract_text() or "")

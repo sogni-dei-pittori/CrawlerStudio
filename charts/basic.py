@@ -151,7 +151,7 @@ def pie_top(table, name_col, value_col, title, top: int = 8, other_label: str = 
         Pie(init_opts=opts.InitOpts(width="900px", height="500px"))
         .add(
             "",
-            [list(z) for z in zip(names, values)],
+            [list(z) for z in zip(names, values, strict=False)],
             radius=["35%", "65%"],
             label_opts=opts.LabelOpts(formatter="{b}: {d}%"),
         )

@@ -10,8 +10,15 @@ resolve_internal_url 全部复用 web_crawler.py 里现成的函数；
 from PySide6.QtCore import QThread, Signal
 
 from utils.site_csv import SiteCsvStore
-from web_crawler import (check_url, discover_subpages, extract_page_info, get_html,
-                         is_blocked, normalize_url, resolve_internal_url)
+from web_crawler import (
+    check_url,
+    discover_subpages,
+    extract_page_info,
+    get_html,
+    is_blocked,
+    normalize_url,
+    resolve_internal_url,
+)
 
 
 class UrlCrawler(QThread):

@@ -1,11 +1,13 @@
 import time
-import pandas as pd
-from utils.net import is_allowed, make_browser_session
-from utils.dirs import make_run_dir
-from utils.schema import BOARD_COLUMNS, fill_core, order_columns, snapshot_of
-from parsers.douban import parse_top250_movie, parse_top250_book, parse_doulist
-from utils.logger import get_logger
 from pathlib import Path
+
+import pandas as pd
+
+from parsers.douban import parse_doulist, parse_top250_book, parse_top250_movie
+from utils.dirs import make_run_dir
+from utils.logger import get_logger
+from utils.net import is_allowed, make_browser_session
+from utils.schema import BOARD_COLUMNS, fill_core, order_columns, snapshot_of
 
 logger = get_logger("douban")
 # 抓的是网页，按"地址栏直接打开"的样子发头（无 Referer）

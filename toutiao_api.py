@@ -1,10 +1,12 @@
 import time
-from utils.schema import BOARD_COLUMNS, order_columns, snapshot_of
-from utils.net import describe_session, is_allowed, make_browser_session
-from utils.dirs import make_run_dir
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+
+from utils.dirs import make_run_dir
 from utils.logger import get_logger
+from utils.net import describe_session, is_allowed, make_browser_session
+from utils.schema import BOARD_COLUMNS, order_columns, snapshot_of
 
 URL = "https://www.toutiao.com/hot-event/hot-board/?origin=toutiao_pc"
 DOMAIN = "www.toutiao.com"

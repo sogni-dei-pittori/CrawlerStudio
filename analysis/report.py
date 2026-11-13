@@ -2,14 +2,15 @@
 
 只做三件事：调统计函数 → 打印 → 写 CSV。统计逻辑一律在各自的模块里。
 """
-import time
 import shutil
+import time
 from pathlib import Path
+
+from analysis import baidu, bilibili, common, cross, douban, hot
 from charts.basic import bar_h, bar_v, line_multi, make_page, topic_rank_bar
 from utils.logger import get_logger
 from utils.paths import BASE_DIR
 from warehouse import load_boards
-from analysis import bilibili, common, douban, hot, baidu, cross
 
 OUT_ROOT = BASE_DIR / "reports"
 logger = get_logger("report")

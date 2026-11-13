@@ -1,6 +1,6 @@
 """抽取层的公共件：清洗、编码探测、字数统计。纯函数，不联网，不写盘"""
-from pathlib import Path
 import re
+from pathlib import Path
 
 # 试编码的顺序，带BOM的tuf--sig放在最前面，然后utf-8，最后gbk
 ENCODINGS = ("utf-8-sig", "utf-8", "gbk")

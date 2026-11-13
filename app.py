@@ -1,4 +1,4 @@
-"""Streamlit 交互看板：吃 warehouse + analysis 的结果，做可筛选的展示。
+r"""Streamlit 交互看板：吃 warehouse + analysis 的结果，做可筛选的展示。
 
 跑法（在项目根目录，不要用 python app.py）：
     streamlit run app.py
@@ -8,7 +8,7 @@ import pandas as pd
 import streamlit as st
 
 from analysis import cross
-from analysis.report import build_tables          # 复用报告的表定义，避免两处维护
+from analysis.report import build_tables  # 复用报告的表定义，避免两处维护
 from warehouse import audit, load_boards
 
 st.set_page_config(page_title="爬虫项目看板", layout="wide")

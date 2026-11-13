@@ -1,7 +1,9 @@
 import csv
 from datetime import datetime
 from urllib.parse import urlparse
+
 from utils.paths import DATA_ROOT
+
 CSV_ROOT = DATA_ROOT
 
 class SiteCsvStore:

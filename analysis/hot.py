@@ -1,5 +1,6 @@
 """掘金 / 头条热榜分析。"""
 import pandas as pd
+
 from analysis.common import latest, pick, spearman, value_counts_table
 
 DATASET_JJ = "juejin_hot"

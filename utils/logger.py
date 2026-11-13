@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+
 from utils.paths import BASE_DIR
 
 LOG_DIR = BASE_DIR / "logs"

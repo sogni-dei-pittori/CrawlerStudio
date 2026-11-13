@@ -15,11 +15,18 @@ PUNCT_RE = re.compile(r"^[\W_]+$", re.UNICODE)
 SENT_SPLIT_RE = re.compile(r"[。！？；…!?;]+|\n+")
 
 # 最小停用词表
-STOPWORDS = set("""
-的 了 和 是 在 有 就 不 也 都 而 及 与 着 或 一个 我们 你们 他们 这 那 这个 那个
-上 下 中 里 个 为 以 于 之 其 被 把 让 给 从 到 对 并 但 但是 因为 所以 如果 然后
-是 的 地 得 过 很 更 最 会 能 可以 要 说 好 吗 呢 吧 啊 哦 嗯
-""".split())
+STOPWORDS = {
+    # 助词 / 连词 / 介词
+    "的", "了", "和", "是", "在", "有", "就", "不", "也", "都", "而", "及", "与", "着", "或",
+    "为", "以", "于", "之", "其", "被", "把", "让", "给", "从", "到", "对", "并", "但", "但是",
+    "因为", "所以", "如果", "然后", "地", "得", "过", "很", "更", "最", "会", "能", "可以", "要",
+    # 人称 / 指示代词
+    "我们", "你们", "他们", "这", "那", "这个", "那个",
+    # 方位 / 量词
+    "上", "下", "中", "里", "个", "一个",
+    # 语气词
+    "说", "好", "吗", "呢", "吧", "啊", "哦", "嗯",
+}
 
 def tokenize(text: str) -> list[str]:
     """分词 + 过筛：去标点、去空白、不做小写化（小写化只在算去重词汇量时用）。"""
@@ -47,15 +54,15 @@ def total_counts(df: pd.DataFrame) -> dict:
     sent_tokens = [len(tokenize(s)) for s in sentences]
 
     return {
-        "总文本条数": int(len(df)),
+        "总文本条数": len(df),
         "有效文本条数": int((~df["missing"]).sum()),
         "缺失文本数量": int(df["missing"].sum()),
         "总字数": int(total_chars),
         "总字数_只算汉字字母数字": int(total_chars_strict),
-        "总词数": int(len(tokens)),
-        "去重词汇量": int(len(vocab)),
-        "去重词汇量_去停用词": int(len(vocab_content)),
-        "句子数": int(len(sentences)),
+        "总词数": len(tokens),
+        "去重词汇量": len(vocab),
+        "去重词汇量_去停用词": len(vocab_content),
+        "句子数": len(sentences),
         "平均句子长度_字": round(sum(sent_chars) / len(sent_chars), 2) if sent_chars else 0.0,
         "平均句子长度_词": round(sum(sent_tokens) / len(sent_tokens), 2) if sent_tokens else 0.0,
         "类型形符比TTR": round(len(vocab) / len(tokens), 4) if tokens else 0.0,

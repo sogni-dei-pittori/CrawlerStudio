@@ -43,7 +43,7 @@ python -m venv .venv
 ```
 
 依赖分三个文件：`requirements.txt`（人工维护的直接依赖）、
-`requirements-lock.txt`（完整版本锁定，用于复现环境）、
+`requirements-lock.txt`（完整版本锁定，用于复现环境；已剔除无关的 panda/utils/python-qt5）、
 `requirements-dev.txt`（pytest / ruff / mypy）。
 
 ## 使用方法

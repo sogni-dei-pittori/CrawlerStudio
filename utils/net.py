@@ -220,20 +220,35 @@ def make_browser_session(ua: str | None = None, dest: str = "empty",
     return mount_retry(sess)
 
 
+def _header_text(value: str | bytes | None, default: str = "") -> str:
+    """把 headers.get() 的返回值统一成 str。
+
+    requests 的类型桩把 header 值标成 str | bytes（运行时几乎总是 str），
+    不统一的话每个使用处都要处理两种类型，mypy 还会报 str-bytes-safe。
+    真收到 bytes 时按 latin-1 解 —— HTTP 头本来就是 latin-1 字节。
+    """
+    if isinstance(value, bytes):
+        return value.decode("latin-1", "replace")
+    if isinstance(value, str):
+        return value
+    return default
+
+
 def describe_session(sess: requests.Session) -> dict:
     """给日志用：一眼看出这次到底伪装成了谁。"""
     headers = sess.headers
+    ua = _header_text(headers.get("User-Agent"))
     return {
-        "ua": headers.get("User-Agent", ""),
-        "browser": _parse_ua(headers.get("User-Agent", "")),
-        "accept": headers.get("Accept", ""),
-        "accept-encoding": headers.get("Accept-Encoding", ""),
-        "sec-ch-ua": headers.get("sec-ch-ua", "(不发)"),
-        "sec-ch-ua-mobile": headers.get("sec-ch-ua-mobile", "(不发)"),
-        "sec-ch-ua-platform": headers.get("sec-ch-ua-platform", "(不发)"),
-        "sec-fetch-dest": headers.get("sec-fetch-dest", ""),
-        "sec-fetch-mode": headers.get("sec-fetch-mode", ""),
-        "sec-fetch-site": headers.get("sec-fetch-site", ""),
+        "ua": ua,
+        "browser": _parse_ua(ua),
+        "accept": _header_text(headers.get("Accept")),
+        "accept-encoding": _header_text(headers.get("Accept-Encoding")),
+        "sec-ch-ua": _header_text(headers.get("sec-ch-ua"), "(不发)"),
+        "sec-ch-ua-mobile": _header_text(headers.get("sec-ch-ua-mobile"), "(不发)"),
+        "sec-ch-ua-platform": _header_text(headers.get("sec-ch-ua-platform"), "(不发)"),
+        "sec-fetch-dest": _header_text(headers.get("sec-fetch-dest")),
+        "sec-fetch-mode": _header_text(headers.get("sec-fetch-mode")),
+        "sec-fetch-site": _header_text(headers.get("sec-fetch-site")),
     }
 
 
@@ -254,7 +269,7 @@ if __name__ == "__main__":
 
         print(f"[{i}] {info['browser']:7s} v{info['major']:<4s} "
               f"{info['platform']:8s} mobile={info['mobile']!s:5s} "
-              f"sec-ch-ua={headers.get('sec-ch-ua', '(none)')}  -> {verdict}")
+              f"sec-ch-ua={_header_text(headers.get('sec-ch-ua'), '(none)')}  -> {verdict}")
 
     print("\n--- robots 检查 ---")
     cases = [

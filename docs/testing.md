@@ -6,10 +6,10 @@
 
 ```
 $ python -m pytest tests/ -q
-230 passed in 5.79s
+245 passed in 12.3s
 ```
 
-230 个用例全部通过，总耗时约 5.8 秒 —— 快到可以在每次改动后随手跑，
+245 个用例全部通过，总耗时约 12 秒 —— 快到可以在每次改动后随手跑，
 这是这套测试能被真正用起来的前提。如果跑一次要五分钟，它就会和
 代码一起腐烂。
 
@@ -59,9 +59,34 @@ LCS 阈值写错不会崩，只会让跨源对比变成一张莫名其妙的表�
 截图比对，投入产出比很低。改用人工走查 + 结构化拆分
 （900 行的类拆成 `gui/main_window.py` 与 `gui/launcher.py`，后者可测）来降低风险。
 
-## 3. 性能基准
+## 3. 测试有效性验证（变异测试）
 
-### 3.1 采集编排：串行 → 并发
+「测试全绿」本身不说明任何事 —— 可能是因为测试根本抓不住 bug。
+所以这里做了变异测试：**故意把代码改坏，看测试会不会红**。
+
+做法是手工注入 6 个变异，每个都对应一个真实修过的 bug 或关键不变量：
+
+| # | 注入的缺陷 | 对应用例 | 结果 |
+|---|---|---|---|
+| 1 | 重试时不再过限速器 | `test_retries_do_not_bypass_the_rate_limiter` | ✅ 红 |
+| 2 | 每个会话各自新建限速器（不共用全局） | `test_sessions_share_the_global_limiter` | ✅ 红 |
+| 3 | `Retry-After` 不封顶 | `test_caps_absurd_retry_after` | ✅ 红 |
+| 4 | 「跑完但没抓到数据」算成功 | 2 个用例（含 `test_all_sites_reporting_no_data_returns_nonzero`） | ✅ 红 |
+| 5 | 解析器去掉 `None` 防护 | 8 个用例（5 failed + 7 errors） | ✅ 红 |
+| 6 | 限速锁内睡眠 | `test_lock_is_not_held_during_sleep` | ✅ 红 |
+
+**过程中发现了失效的用例** —— 这比通过检查更有价值：
+
+变异 1 第一次注入时，测试**全绿**。原因是那条用例把阈值定成了 0.2 秒，
+而退避时间本身就是 0.5s / 1.0s —— 即使重试绕过限速器，间隔也「看起来正常」。
+把 `min_interval` 调到 0.7s（大于退避）之后才真正能测出来。
+
+这条经验写进了用例注释：**测并发/重试这类行为，参数的取值必须让
+「正确实现」与「错误实现」的结果可区分**，否则断言是装饰性的。
+
+## 4. 性能基准
+
+### 4.1 采集编排：串行 → 并发
 
 原实现串行跑五个站点，总耗时是各自之和。现在用线程池并发
 （各站点仍是独立子进程，互不污染）。
@@ -77,7 +102,7 @@ LCS 阈值写错不会崩，只会让跨源对比变成一张莫名其妙的表�
 真实环境里单站点的网络耗时是秒级，收益会更明显 ——
 原来的总耗时是「五个站点之和」，现在是「最慢的那个站点」。
 
-### 3.2 快照合并
+### 4.2 快照合并
 
 ```
 164 个快照文件 → 20995 行 × 30 列
@@ -93,13 +118,13 @@ LCS 阈值写错不会崩，只会让跨源对比变成一张莫名其妙的表�
 而这个项目的核心价值恰恰是「快照可回溯」。
 若快照数量增长到千级，再考虑只读筛选后的时间范围。
 
-### 3.3 限速
+### 4.3 限速
 
 按域名的最小间隔限速，默认 1 秒。实测并发 4 个线程打同一域名时，
 相邻请求间隔均 ≥ 最小间隔（`test_concurrent_callers_are_serialized`），
 而不同域名之间完全互不阻塞（`test_different_hosts_do_not_block_each_other`）。
 
-## 4. 静态检查
+## 5. 静态检查
 
 ```
 $ python -m ruff check .
@@ -139,16 +164,17 @@ All checks passed!
 强制重排会改动 43 个文件、产生一个巨大的纯空白 diff，
 把真正的改动埋掉。现在的策略是「新代码用格式化后的风格，老代码保持原样」。
 
-## 5. 类型检查
+## 6. 类型检查
 
 ```
 $ python -m mypy .
-Success: no issues found in 44 source files
+Success: no issues found in 50 source files
 ```
 
-mypy 在核心数据层（`utils/`、`warehouse/`、`analysis/`、`parsers/`、`extract/`、
-`run_daily.py`，共 44 个文件）**零告警**。`gui/`、`main.py`、`app.py`、`tests/`
-不在检查范围内，理由见下。
+mypy 在数据层（`utils/`、`warehouse/`、`analysis/`、`parsers/`、`extract/`、
+`run_daily.py`）以及不依赖 Qt 复杂类型的界面代码（`gui/launcher.py`、
+`gui/worker.py`、`app.py`）上**零告警**，共 50 个文件。
+只有 `gui/main_window.py`、`main.py`、`tests/` 不在检查范围内，理由见下。
 
 **接入 mypy 时修掉的问题**（都是真实缺陷，不只是类型噪音）：
 
@@ -159,6 +185,11 @@ mypy 在核心数据层（`utils/`、`warehouse/`、`analysis/`、`parsers/`、`
 | `utils/http.py` | `send()` 覆写签名与父类不兼容；`get()` 把模块赋给 Session 变量 | 前者破坏 requests 内部调用约定，后者是类型混用 |
 | `extract/docxfile.py`、`pdf_file.py` | 可选依赖 `None` 赋值给模块变量 | 显式标注后，未安装依赖的路径不再靠运气 |
 | `utils/childio.py` | 参数标成 `dict` 但调用方传的是 `os.environ` | 实际能跑，但类型契约是错的 |
+
+> 11-13 收紧范围（把 `app.py`、`gui/launcher.py`、`gui/worker.py` 纳入）后，
+> 又补修了 8 处：`utils/http.py` 的 `send()` 覆写签名、`utils/net.py` 里
+> `headers.get()` 返回的 `str | bytes`、`app.py` 的 `date_input` 返回联合类型。
+> 这三类都不是「注解缺失」，而是**类型契约与实际行为对不上**。
 
 其中 `parsers/douban.py` 那条最有价值 —— 它说明静态检查不只是「让类型好看」，
 它发现的是一个只在特定数据下才触发的崩溃。
@@ -174,7 +205,7 @@ mypy 在核心数据层（`utils/`、`warehouse/`、`analysis/`、`parsers/`、`
 `# type: ignore`，反而降低可读性；`tests/` 里大量 monkeypatch 替身，
 类型天然不严格，对它们做类型检查的收益接近零。
 
-## 6. 已知局限
+## 7. 已知局限
 
 诚实地记录当前没做到的部分：
 
@@ -190,7 +221,8 @@ mypy 在核心数据层（`utils/`、`warehouse/`、`analysis/`、`parsers/`、`
 4. **并发采集中单个站点仍是串行的**。豆瓣 Top250 要翻 10 页，
    每页之间有间隔（出于礼貌），这部分没有并行化 ——
    对同一站点并发请求本身就不礼貌。
-5. **mypy 只覆盖核心数据层**。`gui/`、`main.py`、`tests/` 未纳入检查，
-   所以「界面传错参数类型」这类问题仍只能靠运行发现。
+5. **mypy 仍留了三个白名单**。`gui/main_window.py`、`main.py`、`tests/` 未纳入检查，
+   所以「界面传错参数类型」这类问题仍只能靠运行发现。比第一版多覆盖了
+   `gui/launcher.py`、`gui/worker.py`、`app.py` 三个文件。
 6. **`run_daily.py` 的并发只在编排层**。单个站点内部（如豆瓣翻 10 页）
    仍是串行 —— 对同一站点并发请求本身不礼貌，这是有意的限制。

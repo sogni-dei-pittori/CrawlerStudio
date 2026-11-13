@@ -20,8 +20,10 @@ FROZEN = is_frozen()
 #   self_exe() 依次试 sys.executable -> sys.argv[0]，三种环境都拿到对的程序
 PYTHON = str(self_exe())
 
-# 整个脚本都是顶层代码的模块（import 即执行，不需要 main()）
-TOP_LEVEL_MODULES = frozenset({"run_daily"})
+# 注：这里本来有个 TOP_LEVEL_MODULES = {"run_daily"}，因为 run_daily.py 早年是
+# 「import 即执行」的顶层脚本。它现在有 main() 了，那个特例也就没用了 ——
+# 留着反而有害：一个模块被 import 后什么都没干，是查不出来的静默失败。
+# 所以现在一律要求：凡是要被 --task 跑的模块，都必须有 main() -> int。
 
 
 def hide_console() -> None:
@@ -73,8 +75,7 @@ def run_task(module: str, extra: list[str] | None = None) -> int:
     mod = importlib.import_module(module)
     entry = getattr(mod, "main", None)
     if entry is None:
-        if module in TOP_LEVEL_MODULES:
-            return 0                        # 顶层脚本：import 时已经执行完
+        # 明确报错而不是静默成功：import 完什么都没干是查不出来的失败
         print(f"[错误] {module} 没有 main()，什么都没执行（请给它加一个 main() -> int）")
         return 1
     return int(entry() or 0)

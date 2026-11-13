@@ -94,7 +94,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pytest --cov              # 带覆盖率
 .\.venv\Scripts\python.exe -m ruff check .              # 静态检查（当前 0 告警）
 .\.venv\Scripts\python.exe -m ruff check . --fix        # 自动修复
-.\.venv\Scripts\python.exe -m mypy .                    # 类型检查（核心层 44 个文件零告警）
+.\.venv\Scripts\python.exe -m mypy .                    # 类型检查（50 个文件零告警）
 pre-commit install                                # 可选：提交前自动跑上面两项
 ```
 
@@ -201,7 +201,7 @@ crawler/
 │   ├── net.py                会话与请求头自洽、robots.txt 判定与缓存
 │   ├── schema.py             列约定与 URL 规范化
 │   ├── paths.py logger.py childio.py dirs.py site_csv.py housekeeping.py
-├── tests/                    单元测试（230 个用例，pytest）
+├── tests/                    单元测试（245 个用例，pytest）
 ├── tools/                    计划任务、开机自启、图标生成、打包与安装包脚本
 │   ├── build_nuitka.bat      增量编译（Nuitka）
 │   ├── build_nuitka_clean.bat 全量编译（Nuitka）

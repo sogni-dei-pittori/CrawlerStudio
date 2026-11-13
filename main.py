@@ -86,6 +86,10 @@ def main(argv: list[str] | None = None) -> int:
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except Exception:                      # 打包后没有控制台，异常必须落盘才看得见
-        logger.exception("界面启动失败")
+    except SystemExit:
+        raise                              # sys.exit 是正常退出路径，别记成错误
+    except Exception:
+        # 打包后没有控制台，异常必须落盘才看得见。
+        # 三种模式都可能走到这里（--task 子任务崩了也要留痕），所以标题不带「界面」。
+        logger.exception("程序异常退出（argv=%s）", sys.argv[1:])
         raise

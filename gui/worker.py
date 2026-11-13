@@ -47,24 +47,31 @@ class ScriptRunner(QObject):
             self.process.kill()
 
     def start(self) -> None:
-        self.process = QProcess(self)
-        self.process.setWorkingDirectory(self.cwd)
+        proc = QProcess(self)            # 先拿到局部引用，避免到处写 self.process（可能为 None）
+        self.process = proc
+        proc.setWorkingDirectory(self.cwd)
 
         env = QProcessEnvironment.systemEnvironment()      # ★ 让子进程按 UTF-8 输出
         env.insert("PYTHONIOENCODING", "utf-8")            #   打包后这句会被忽略，所以下面
         env.insert("PYTHONUTF8", "1")                      #   还得按实际字节解码（utils/childio.py）
-        self.process.setProcessEnvironment(env)
+        proc.setProcessEnvironment(env)
 
-        self.process.setProcessChannelMode(QProcess.MergedChannels)   # stdout+stderr 合并，顺序才不乱
-        self.process.readyReadStandardOutput.connect(self._on_output)  # ★ 有输出就触发，不阻塞
-        self.process.finished.connect(self._on_finished)               # ★ 用方法，不用 lambda
-        self.process.errorOccurred.connect(self._on_error)             # ★ 启动失败也要发信号
+        # stdout+stderr 合并，顺序才不乱。常量名在 PySide6 的类型桩里没有，
+        # 但运行时存在（枚举项），所以忽略这一条类型告警。
+        proc.setProcessChannelMode(QProcess.MergedChannels)  # type: ignore[attr-defined]
+        proc.readyReadStandardOutput.connect(self._on_output)   # ★ 有输出就触发，不阻塞
+        proc.finished.connect(self._on_finished)                # ★ 用方法，不用 lambda
+        proc.errorOccurred.connect(self._on_error)              # ★ 启动失败也要发信号
         self._running = True
-        self.process.start(self.python_exe, [self.script, *self.args])
+        proc.start(self.python_exe, [self.script, *self.args])
 
     def _on_output(self) -> None:
-        raw = bytes(self.process.readAllStandardOutput())
-        self.output.emit(decode_output(raw))                           # ★ 按实际编码解，别写死 utf-8
+        if self.process is None:         # 理论上不会发生，但别让空引用把界面搞崩
+            return
+        # .data() 返回 bytes/bytearray/memoryview 之一（类型桩的说法），
+        # 统一转成 bytes 再交给解码函数
+        raw = bytes(self.process.readAllStandardOutput().data())
+        self.output.emit(decode_output(raw))                  # ★ 按实际编码解，别写死 utf-8
 
     def _on_finished(self, code: int, _status) -> None:
         self._running = False
@@ -73,7 +80,7 @@ class ScriptRunner(QObject):
     def _on_error(self, _error) -> None:
         self._running = False
         try:
-            message = self.process.errorString()
+            message = self.process.errorString() if self.process is not None else "进程未启动"
         except RuntimeError:                 # QProcess 已被回收
             message = "QProcess 已被回收（进程可能已经结束）"
         self.error.emit(message)

@@ -189,9 +189,9 @@ Python 标准库的 `RobotFileParser` 在匹配前会**丢掉 URL 的 query 部�
 
 | 手段 | 位置 | 状态 |
 |---|---|---|
-| 单元测试 | `tests/` | 230 个用例，核心层覆盖率 77%–100%，合计 48% |
+| 单元测试 | `tests/` | 245 个用例，核心层覆盖率 77%–100%，合计 48% |
 | 静态检查 | `pyproject.toml` → ruff | 0 告警 |
-| 类型检查 | `pyproject.toml` → mypy | 核心层 44 个文件零告警 |
+| 类型检查 | `pyproject.toml` → mypy | 50 个文件零告警 |
 | 提交钩子 | `.pre-commit-config.yaml` | ruff + 基础卫生检查 |
 | 自检命令 | `python -m utils.net` / `warehouse.boards` / `analysis.common` | 人工可跑 |
 

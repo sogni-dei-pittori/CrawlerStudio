@@ -6,6 +6,8 @@
 """
 from __future__ import annotations
 
+import re
+
 import pytest
 from conftest import FakeResponse
 
@@ -60,14 +62,25 @@ class TestMakeBrowserSession:
 
         assert "sec-ch-ua" not in headers
 
-    @pytest.mark.parametrize("ua", [ua for ua in net.USER_AGENTS if "Chrome/" in ua or "Edg/" in ua])
-    def test_chromium_version_matches_ua(self, ua):
-        """sec-ch-ua 里的版本号必须和 UA 里的一致，否则两家一对就是矛盾。"""
-        info = net._parse_ua(ua)
+    @pytest.mark.parametrize(
+        ("ua", "major", "brand"),
+        [
+            (net.USER_AGENTS[0], "138", "Microsoft Edge"),
+            (net.USER_AGENTS[1], "138", "Google Chrome"),
+            (net.USER_AGENTS[2], "120", "Google Chrome"),
+        ],
+    )
+    def test_chromium_version_matches_ua(self, ua, major, brand):
+        """sec-ch-ua 里的版本号与品牌必须和 UA 里一致，否则两家一对就是矛盾。
 
+        ★ 这里的期望值是**写死**的，不是从 _parse_ua 反推出来的。
+          如果从同一个解析函数取期望值，解析器认错浏览器时两边会一起错，
+          断言照样通过 —— 那就成了自证。
+        """
         headers = net.make_browser_session(ua=ua).headers
 
-        assert f'v="{info["major"]}"' in headers["sec-ch-ua"]
+        assert f'v="{major}"' in headers["sec-ch-ua"]
+        assert brand in headers["sec-ch-ua"]
 
     def test_api_mode_accepts_anything(self):
         """接口调用发 Accept: */*，不是那一长串 HTML 类型。"""
@@ -83,15 +96,28 @@ class TestMakeBrowserSession:
         assert headers["Upgrade-Insecure-Requests"] == "1"
 
     def test_every_ua_produces_self_consistent_headers(self):
-        """把自检脚本里的判断搬进测试：以后改 USER_AGENTS 会当场红。"""
+        """把自检脚本里的判断搬进测试：以后改 USER_AGENTS 会当场红。
+
+        ★ 期望值从 UA **原文**用正则取，而不是从 _parse_ua 的返回值取 ——
+          否则解析器把 Edge 认成 Chrome 时，头和期望会一起错，测试照样绿。
+        """
         for ua in net.USER_AGENTS:
-            info = net._parse_ua(ua)
             headers = net.make_browser_session(ua=ua).headers
 
-            if info["browser"] == "firefox":
+            if "Firefox/" in ua:                       # Firefox 不支持客户端提示
                 assert "sec-ch-ua" not in headers, ua
+                continue
+
+            # 版本号直接读原文
+            match = re.search(r"(?:Chrome|Edg)/(\d+)", ua)
+            assert match, ua
+            assert f'v="{match.group(1)}"' in headers["sec-ch-ua"], ua
+
+            # 品牌也要对得上：Edg/ 的 UA 必须是 Microsoft Edge
+            if "Edg/" in ua:
+                assert "Microsoft Edge" in headers["sec-ch-ua"], ua
             else:
-                assert f'v="{info["major"]}"' in headers["sec-ch-ua"], ua
+                assert "Google Chrome" in headers["sec-ch-ua"], ua
 
     def test_accept_encoding_only_lists_installed_codecs(self):
         """声明的压缩算法必须先有库能解，否则响应解不开。"""

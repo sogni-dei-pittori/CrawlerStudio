@@ -12,10 +12,11 @@
    最慢的那个站点决定。各站点仍是**独立子进程**，所以一个站点的
    崩溃/内存泄漏不会污染其它站点。
 
-2. **结果不再靠字符串匹配**。原版用 FAIL_MARKERS 在子进程输出里找
-   「没有获取到数据」这类中文来判断成败 —— 文案一改就失效，而且
-   子进程打印一句相似内容就会误判。现在以退出码为准（采集脚本本来
-   就有 0/1 的约定），字符串匹配降级为「附加警告」仍然记录。
+2. **成败判定以退出码为准，字符串匹配作为补充**。采集脚本本来就有
+   0/1 的约定，所以先看退出码；但有些情况脚本会 return 0 却没有数据
+   （robots 禁止、接口 success=false），这时靠 FAIL_MARKERS 把它抓出来，
+   仍然判为失败 —— 「跑完了但一条没抓到」绝不能被当成成功，
+   否则计划任务永远不会报警。
 
 3. **结构化摘要**。结束时输出一份各站点耗时/状态的小结，并返回
    非零退出码 —— 计划任务（Windows Task Scheduler）能据此报警。
@@ -129,10 +130,15 @@ def run_site(name: str, script_name: str) -> SiteResult:
                           returncode=result.returncode,
                           error=f"退出码 {result.returncode}", warnings=hits)
 
-    # 退出码 0 但输出里出现失败字样：记为「成功但有警告」，让人能看见
+    # 退出码 0 但输出里出现「没有获取到数据」这类字样：
+    # 采集脚本在「robots 禁止」「接口返回 success=false」时确实会 return 0，
+    # 但结果是不可用的。这种情况必须让整次任务**失败**（非零退出），
+    # 否则计划任务会把「一条没抓到」当成成功，静默丢数据。
     if hits:
-        logger.warning("[%s] 退出码为 0，但输出里出现：%s", name, hits)
-    return SiteResult(name, script_name, True, elapsed, returncode=0, warnings=hits)
+        logger.error("[%s] 退出码为 0，但输出里出现：%s（按失败处理）", name, hits)
+        return SiteResult(name, script_name, False, elapsed, returncode=0,
+                          error="未取到数据：" + "、".join(hits), warnings=hits)
+    return SiteResult(name, script_name, True, elapsed, returncode=0, warnings=[])
 
 
 def collect(names: list[str]) -> list[SiteResult]:

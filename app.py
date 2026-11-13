@@ -43,7 +43,16 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-start, end = str(date_range[0]), str(date_range[1])      # date 对象 → "2026-09-16"（date 列是字符串）
+# date_input 的返回类型是「0 / 1 / 2 元组」的联合：用户只选了一个日期时只有一个元素。
+# 统一成列表再取值，既不会下标越界，也让 mypy 能收窄（否则 [1] 报 tuple index out of range）。
+# 变量名别叫 picked —— 下面 selectbox 已经占用了这个名字，mypy 会按首次赋值锁定类型。
+date_values = list(date_range) if isinstance(date_range, tuple) else [date_range]
+if len(date_values) >= 2:
+    start, end = str(date_values[0]), str(date_values[1])
+elif date_values:
+    start = end = str(date_values[0])
+else:                                    # 极端情况：没有日期可筛，就按最新一天
+    start = end = str(df["date"].max())
 view = df[(df["date"] >= start) & (df["date"] <= end)]
 
 # ---------------- 指标卡 ----------------

@@ -648,7 +648,10 @@ class MainWindow(QMainWindow):
             #   指标卡就显示成 71725.0（难看），而且缺失数解析会报 ValueError
             metrics = pd.read_csv(latest / "语料_总体指标.csv",
                                    keep_default_na=False, dtype=str)
-            values = {str(k): str(v) for k, v in zip(metrics["指标"], metrics["值"], strict=True)}
+            # 这里刻意不用 strict=True：两列长度不一致时宁可少显示几个指标卡，
+            # 也不该让整个报告读取失败（strict 会抛 ValueError，被下面的
+            # except 接住后变成「六个指标全空」）。
+            values = {str(k): str(v) for k, v in zip(metrics["指标"], metrics["值"], strict=False)}
             per_doc = pd.read_csv(latest / "语料_每份文件.csv", keep_default_na=False)
         except Exception as exc:                   # 报告被删/被占用都别让界面崩
             self.log.appendPlainText(f"[提示] 读报告失败：{type(exc).__name__}: {exc}")

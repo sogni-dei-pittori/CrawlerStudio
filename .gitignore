@@ -56,7 +56,10 @@ assets/installer/
 
 # ==================== 垃圾文件 ====================
 # 仓库根目录下的 .pyc 是历史遗留（不该被提交），规则见上面 *.py[cod]
-# 打包/安装产物
-installer/
+# 打包/安装产物（installer/ 上面已经列过，不重复）
 *.exe
-!assets/*.ico
+
+# 测试与检查产物
+.coverage
+coverage.xml
+htmlcov/

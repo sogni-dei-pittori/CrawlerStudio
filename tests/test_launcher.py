@@ -73,12 +73,25 @@ class TestRunTask:
         assert seen["argv"][1:] == ["arg1", "arg2"]
         assert seen["argv"][0] != "fake_mod"
 
-    def test_top_level_module_without_main_succeeds(self, monkeypatch):
-        """run_daily 这类「import 即执行」的模块没有 main()，也要算成功。"""
-        import types
-        monkeypatch.setitem(sys.modules, "run_daily", types.ModuleType("run_daily"))
+    def test_run_daily_is_callable_via_task(self):
+        """run_daily 现在有 main()，--task run_daily 必须能真的跑起来。
 
-        assert launcher.run_task("run_daily") == 0
+        曾经的实现里 run_daily 属于「顶层脚本」（import 即执行，没有 main），
+        被列在白名单里直接返回 0 —— 那个白名单在 run_daily 加了 main()
+        之后就成了「永远走不到的分支」。这条用例守的是现状：
+        run_daily 必须能被当成普通模块调用。
+        """
+        import run_daily
+
+        assert callable(getattr(run_daily, "main", None))
+
+    def test_module_without_main_returns_nonzero(self, monkeypatch, capsys):
+        """没有 main() 的模块一律失败 —— 不设白名单例外。"""
+        import types
+        monkeypatch.setitem(sys.modules, "someScript", types.ModuleType("someScript"))
+
+        assert launcher.run_task("someScript") == 1
+        assert "没有 main()" in capsys.readouterr().out
 
     def test_ordinary_module_without_main_fails_loudly(self, monkeypatch, capsys):
         import types

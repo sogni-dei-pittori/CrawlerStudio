@@ -92,12 +92,13 @@ warn_unused_ignores = true
 check_untyped_defs = true
 no_implicit_optional = true
 ignore_missing_imports = true
-# GUI 与测试暂不纳入类型检查门槛：
-#   - gui/ 依赖 PySide6，其类型桩对 QProcess 等 API 描述不准确（如
-#     QProcess.MergedChannels 在桩里不存在），强检查只会产生噪音；
-#   - tests/ 里大量 monkeypatch 替身，类型天然不严格。
-# 核心数据层（utils/warehouse/analysis/parsers/extract）是零告警的，见下方 overrides。
-exclude = ["^(\\.venv|build|build_nuitka|dist|gui|tests)/", "^main\\.py$", "^app\\.py$"]
+# 暂不纳入类型检查门槛的范围：
+#   - gui/main_window.py、main.py：依赖 PySide6 与 Qt 事件循环，
+#     类型桩对 QProcess 等 API 描述不准确，强检查只会产生噪音；
+#   - tests/：大量 monkeypatch 替身，类型天然不严格。
+# 注意 app.py 与 gui/launcher.py、gui/worker.py 不在排除之列 ——
+# 它们不碰 Qt 的复杂类型，没有理由豁免。
+exclude = ["^(\\.venv|build|build_nuitka|dist|tests)/", "^gui/main_window\\.py$", "^main\\.py$"]
 
 # 数据层：函数体内部也要检查，但暂不要求每个函数都有注解
 [[tool.mypy.overrides]]

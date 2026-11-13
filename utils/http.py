@@ -13,23 +13,39 @@
 挂载点是 requests 的 HTTPAdapter，所以 `sess.get(...)` 的调用方式完全不变，
 原有脚本一行都不用改。
 
+## 为什么重试是我们自己循环，而不是 urllib3 的 Retry
+
+一开始的做法是给 adapter 设 `max_retries=Retry(...)`，让 urllib3 内部重试。
+实测发现问题：`send()` 只被调用一次，urllib3 在 `super().send()` **内部**
+重发，所以限速器只对第一次请求生效 —— 服务端 503 时会连打三下，
+间隔 0.0s / 1.0s（要求是 5s）。而 503 恰恰是最需要放慢的时候。
+
+更要命的是，这种做法下 `Retry-After` 也无从限制：urllib3 2.x 的
+`retry_after_max` 才是那个开关，光有常量不传进去等于没有。
+
+所以改成：adapter 关掉内部重试（`max_retries=0`），重试写在 `RateLimitedAdapter.send()`
+的显式循环里，**每次尝试前都过一遍限速器**。代价是少了一点 urllib3 的便利，
+换来的是「限速与重试在同一处、顺序确定」这个可以讲清楚的保证。
+
 设计取舍：
 - 只重试「值得重试」的：连接错误、超时、429、5xx。4xx（除 429）不重试 ——
   403 是站方明确拒绝，重试只会加重对方负担，也容易被判为攻击。
-- 429 优先听 `Retry-After`，服务器说等多久就等多久（上限 cap 住，防止被恶意站点拖死）。
+- 429 优先听 `Retry-After`，服务器说等多久就等多久（上限 `RETRY_AFTER_CAP` 兜住，
+  防止被恶意站点用一个超长头拖死整个采集进程）。
 - 限速按**域名**分别计算，不是全局 —— 抓 A 站的等待不该阻塞 B 站。
 """
 from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
+from email.utils import parsedate_to_datetime
 from urllib.parse import urlsplit
 
 import requests
 from requests.adapters import HTTPAdapter
 from requests.models import PreparedRequest, Response
-from urllib3.util.retry import Retry
 
 # ---- 默认策略 ----
 DEFAULT_TIMEOUT = (5, 15)      # (连接超时, 读取超时)：连接 5 秒内必须建立，读完给 15 秒
@@ -38,6 +54,11 @@ BACKOFF_FACTOR = 0.5           # 退避基数：0.5s → 1s → 2s（指数）
 RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
 RETRY_AFTER_CAP = 30.0         # Retry-After 最长只认 30 秒
 DEFAULT_MIN_INTERVAL = 1.0     # 同一域名两次请求之间至少间隔（秒）
+RETRIABLE_EXCEPTIONS = (
+    requests.exceptions.ConnectionError,
+    requests.exceptions.Timeout,
+    requests.exceptions.ChunkedEncodingError,
+)
 
 
 @dataclass
@@ -74,6 +95,7 @@ class RateLimiter:
             # ★ 先「预约」下一次时间点再睡眠，且锁内不 sleep：
             #   如果把 sleep 放进锁里，一个域的等待会阻塞其它所有域。
             self._last_hit[host] = now + delay
+        # 这里不封顶：delay 由我们自己的 min_interval 决定，不是外部输入
         time.sleep(delay)
         return delay
 
@@ -83,62 +105,109 @@ class RateLimiter:
             self._last_hit.clear()
 
 
-class RateLimitedAdapter(HTTPAdapter):
-    """在真正发包之前先过限速器。
+# ---- 全局默认限速器 ----
+# 所有用 make_session / make_browser_session 建出来的会话共用这一个，
+# 所以同一个进程里「对某域名的最小间隔」是全局成立的。
+#
+# ⚠️ 它的作用范围是**单个进程**。run_daily 把五个站点跑在五个子进程里，
+#    每个进程各有一份记录 —— 但五个站点本来就是五个不同域名，
+#    所以实际采集行为不受影响。如果将来出现「多个进程打同一个站」的需求，
+#    得把记录落到文件或加文件锁，那时再说。
+GLOBAL_LIMITER = RateLimiter()
 
-    send() 是 requests 所有请求的唯一出口，挂在这里能保证
-    无论调用方用 sess.get / sess.post 还是跟随重定向，都受同一套限速约束。
+
+class RateLimitedAdapter(HTTPAdapter):
+    """在真正发包之前先过限速器，并在这一层做重试。
+
+    ★ 重试必须在**限速之内的显式循环**里做，不能交给 urllib3 的 max_retries：
+      实测那样做时限速器只对第一次请求生效（503 时会连打三下，间隔 0.0s / 1.0s）。
     """
 
-    def __init__(self, limiter: RateLimiter | None = None, **kwargs):
-        self.limiter = limiter or RateLimiter()
+    def __init__(self, limiter: RateLimiter | None = None, retries: int = DEFAULT_RETRIES,
+                 **kwargs):
+        self.limiter = limiter if limiter is not None else GLOBAL_LIMITER
+        self.retries = retries
+        # 关掉 urllib3 的内部重试：重试由下面的 send() 负责
+        kwargs["max_retries"] = 0
         super().__init__(**kwargs)
 
     def send(
         self,
         request: PreparedRequest,
         stream: bool = False,
-        timeout: float | tuple[float | None, float | None] | None = None,
+        # 签名必须与 requests.adapters.HTTPAdapter.send 完全一致：
+        # 这是覆写父类方法，类型不兼容会破坏 requests 的内部调用约定（mypy [override]）。
+        timeout: float | tuple[float, float] | tuple[float, None] | None = None,
         verify: bool | str = True,
-        cert: str | tuple[str, str] | None = None,
-        proxies: dict[str, str] | None = None,
+        cert: bytes | str | tuple[bytes | str, bytes | str] | None = None,
+        proxies: Mapping[str, str] | None = None,
     ) -> Response:
-        # 签名必须和父类一致（否则 mypy 报 override 不兼容，
-        # 而且 requests 内部是按关键字传这些参数的）
-        self.limiter.wait(request.url or "")
-        return super().send(request, stream=stream, timeout=timeout, verify=verify,
-                            cert=cert, proxies=proxies)
+        url = request.url or ""
+        last_exc: Exception | None = None
+
+        for attempt in range(self.retries + 1):
+            self.limiter.wait(url)                  # ★ 每次尝试前都限速
+            try:
+                response = super().send(request, stream=stream, timeout=timeout,
+                                        verify=verify, cert=cert, proxies=proxies)
+            except RETRIABLE_EXCEPTIONS as exc:
+                last_exc = exc
+                if attempt >= self.retries:
+                    raise
+                self._sleep_before_retry(attempt, reason=type(exc).__name__)
+                continue
+
+            if response.status_code not in RETRY_STATUS or attempt >= self.retries:
+                return response                     # 成功，或重试用尽把响应交回去
+
+            self._sleep_before_retry(attempt, reason=f"HTTP {response.status_code}",
+                                     response=response)
+
+        # 循环只在重试用尽时退出；异常路径已在上面 raise
+        if last_exc is not None:                    # pragma: no cover - 防御性
+            raise last_exc
+        raise RuntimeError("重试循环异常退出")       # pragma: no cover - 不可达
+
+    def _sleep_before_retry(self, attempt: int, reason: str, response: Response | None = None) -> None:
+        """退避等待。服务端给了 Retry-After 就听它的（但有上限）。"""
+        delay = _retry_after(response) if response is not None else None
+        if delay is None:
+            delay = BACKOFF_FACTOR * (2 ** attempt)
+        time.sleep(min(delay, RETRY_AFTER_CAP))
 
 
-def build_retry(total: int = DEFAULT_RETRIES) -> Retry:
-    """urllib3 的重试策略对象。
+def _retry_after(response: Response) -> float | None:
+    """解析 Retry-After 头，返回秒数；没有或解析不了返回 None。
 
-    注意 `respect_retry_after_header` 是 urllib3 2.x 的名字；
-    1.x 叫 `respect_retry_after`，这里显式兼容两种，避免依赖版本差异导致
-    「以为在听服务器的、其实没有」。
+    支持两种格式（RFC 7231）：秒数、以及 HTTP-date。
     """
-    return Retry(
-        total=total,
-        backoff_factor=BACKOFF_FACTOR,
-        status_forcelist=sorted(RETRY_STATUS),
-        allowed_methods=frozenset({"GET", "HEAD", "OPTIONS"}),
-        raise_on_status=False,          # 重试用尽后把响应交回去，由调用方判 status_code
-        respect_retry_after_header=True,  # 听 Retry-After（urllib3 >= 1.26 都支持）
-    )
+    raw = response.headers.get("Retry-After")
+    if not raw:
+        return None
+    raw = raw.strip()
+    if raw.isdigit():
+        return float(raw)
+    try:
+        when = parsedate_to_datetime(raw)
+    except (TypeError, ValueError):
+        return None
+    if when is None:
+        return None
+    delta = when.timestamp() - time.time()
+    return max(delta, 0.0)
 
 
 def mount_retry(sess: requests.Session, retries: int = DEFAULT_RETRIES,
                 limiter: RateLimiter | None = None) -> requests.Session:
-    """给已有 session 装上「重试 + 限速」，返回同一个对象（便于链式调用）。"""
-    adapter = RateLimitedAdapter(limiter=limiter, max_retries=build_retry(retries))
+    """给已有 session 装上「重试 + 限速」，返回同一个对象（便于链式调用）。
+
+    两个协议共用同一个 adapter 实例：HTTPAdapter 不持有与协议相关的状态，
+    限速器按 request.url 的域名分桶，所以共用是安全的。
+    """
+    adapter = RateLimitedAdapter(limiter=limiter, retries=retries)
     sess.mount("https://", adapter)
     sess.mount("http://", adapter)
     return sess
-
-
-# ---- 全局默认限速器：所有用 make_session / make_browser_session 建出来的会话共用，
-# 这样「同一个域」的限制对多个脚本同时生效（run_daily 并发跑的时候特别重要）。
-GLOBAL_LIMITER = RateLimiter()
 
 
 def get(url: str, sess: requests.Session | None = None, *, timeout=DEFAULT_TIMEOUT,
@@ -153,3 +222,13 @@ def get(url: str, sess: requests.Session | None = None, *, timeout=DEFAULT_TIMEO
     if sess is None:
         return requests.get(url, timeout=timeout, **kwargs)
     return sess.get(url, timeout=timeout, **kwargs)
+
+
+def should_retry(status_code: int) -> bool:
+    """给调用方判「这个状态码值得重试吗」（重试逻辑之外的只读查询）。"""
+    return status_code in RETRY_STATUS
+
+
+def host_of(urls: Iterable[str]) -> set[str]:
+    """小工具：一批 URL 里出现了哪些域名（日志/自检用）。"""
+    return {urlsplit(u).netloc.lower() for u in urls}

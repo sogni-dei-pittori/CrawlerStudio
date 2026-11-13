@@ -102,20 +102,30 @@ class TestRunSite:
         assert result.ok is False
         assert "启动失败" in result.error
 
-    def test_fail_marker_with_zero_exit_is_warning_only(self, monkeypatch):
-        """退出码 0 但输出里有「没有获取到数据」：算成功，但必须留警告。
+    def test_fail_marker_with_zero_exit_is_still_a_failure(self, monkeypatch):
+        """退出码 0 但输出里有「没有获取到数据」→ 必须判失败。
 
-        原版是直接把这种情况判为失败；改成警告是因为退出码才是契约，
-        文案匹配太脆。但警告要留着，否则「跑了两小时一条没抓到」
-        会被当成正常。
+        采集脚本在 robots 禁止、接口 success=false 时会 return 0，
+        但结果是不可用的。如果这里算成功，计划任务会把「一条没抓到」
+        当成正常，静默丢数据 —— 这是最危险的那种失败。
         """
         monkeypatch.setattr(run_daily.subprocess, "run",
                             lambda *a, **k: FakeCompleted(0, "没有获取到数据".encode()))
 
         result = run_daily.run_site("baidu", "baidu_api.py")
 
-        assert result.ok is True
+        assert result.ok is False
         assert result.warnings == ["没有获取到数据"]
+        assert "未取到数据" in result.error
+
+    def test_clean_zero_exit_has_no_warnings(self, monkeypatch):
+        monkeypatch.setattr(run_daily.subprocess, "run",
+                            lambda *a, **k: FakeCompleted(0, "已保存 CSV".encode()))
+
+        result = run_daily.run_site("baidu", "baidu_api.py")
+
+        assert result.ok is True
+        assert result.warnings == []
 
     def test_records_elapsed_time(self, monkeypatch):
         monkeypatch.setattr(run_daily.subprocess, "run", lambda *a, **k: FakeCompleted(0))
@@ -181,6 +191,17 @@ class TestMain:
         monkeypatch.setattr(run_daily.subprocess, "run", lambda *a, **k: FakeCompleted(0))
 
         assert run_daily.main(["baidu"]) == 0
+
+    def test_all_sites_reporting_no_data_returns_nonzero(self, monkeypatch, no_lock):
+        """★ 回归：五个站点都「跑完了但没抓到数据」时必须非零退出。
+
+        这是最危险的一种失败 —— 脚本退出码是 0，日志里写着「完成」，
+        只有退出码能让计划任务报警。
+        """
+        monkeypatch.setattr(run_daily.subprocess, "run",
+                            lambda *a, **k: FakeCompleted(0, "没有获取到数据".encode()))
+
+        assert run_daily.main(["baidu", "juejin"]) == 1
 
     def test_any_failure_returns_nonzero(self, monkeypatch, no_lock):
         """计划任务靠退出码判断要不要报警，这个返回值不能丢。"""

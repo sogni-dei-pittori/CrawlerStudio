@@ -7,6 +7,9 @@
 "自洽"是指：UA 说是 Edge，sec-ch-ua 就必须是 Edge；UA 是 Firefox，
 就一个 sec-ch-ua 都不许发 —— Firefox 根本不支持客户端提示，
 发了等于主动告诉对方"我是脚本"。
+
+两个入口建出来的会话都自动挂上「重试 + 按域名限速」（见 utils/http.py），
+所以采集脚本里的 sess.get() 不用改，就已经有韧性了。
 """
 import importlib.util
 import random
@@ -16,6 +19,8 @@ from urllib.parse import urlsplit, urlunsplit
 from urllib.robotparser import RobotFileParser
 
 import requests
+
+from utils.http import mount_retry
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0",
@@ -135,12 +140,12 @@ _ACCEPT_ENCODING = _accept_encoding()
 
 
 def make_session() -> requests.Session:
-    """精简版会话：保持原样别动。"""
+    """精简版会话：只发三样头，同样带重试与限速。"""
     sess = requests.session()
     sess.headers["User-Agent"] = random.choice(USER_AGENTS)
     sess.headers["Accept-Language"] = _ACCEPT_LANGUAGE
     sess.headers["Accept"] = _ACCEPT_HTML
-    return sess
+    return mount_retry(sess)
 
 
 def _parse_ua(ua: str) -> dict:
@@ -212,7 +217,7 @@ def make_browser_session(ua: str | None = None, dest: str = "empty",
         sess.headers["sec-ch-ua-mobile"] = "?1" if info["mobile"] else "?0"
         sess.headers["sec-ch-ua-platform"] = f'"{info["platform"]}"'  # 引号别忘了
 
-    return sess
+    return mount_retry(sess)
 
 
 def describe_session(sess: requests.Session) -> dict:

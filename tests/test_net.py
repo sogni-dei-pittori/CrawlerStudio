@@ -186,9 +186,11 @@ class TestRobots:
         assert len(sess.calls) == 2
 
     def test_query_parameter_rules_are_judged_conservatively(self, fake_session):
-        """标准库会把 URL 的 query 丢掉再匹配，导致 `Disallow: /*?*` 这类规则失效。
+        """历史原因：标准库会把 URL 的 query 丢掉再匹配，`Disallow: /*?*` 这类规则会失效。
 
-        项目的对策是：robots 里只要存在带 ? 的规则，就保守拒绝带参数的 URL。
+        项目的对策是：robots 里只要存在带 ? 的规则，就**先**保守拒绝带参数的 URL，
+        不依赖标准库版本 —— 旧版会误判成允许（走保守分支），3.13.18 起已能正确匹配
+        （标准库自己就判禁止）；两种情况的结论都是拒绝，文案统一由保守分支给出。
         这是防止"技术上抓到了、道义上越界"的关键判断，必须有用例守着。
         """
         robots = "User-agent: *\nDisallow: /*?*\n"

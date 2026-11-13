@@ -113,12 +113,17 @@ def is_allowed(sess, url: str) -> tuple[bool, str]:
     if rp is None:
         return True, "robots 未取到（网络错误或 5xx），按未声明处理"
 
+    # ★ 先查「含 ? 的规则」，再问标准库。
+    #   - 旧版 CPython 的 can_fetch 会把 URL 的 query 丢掉，`Disallow: /*?*` 会被误判成允许；
+    #   - 较新的 CPython（实测 3.13.18 起）已经能正确匹配，会直接返回禁止。
+    #   两条路径的结论都是拒绝，但原因文案不同 —— 先做保守判断，行为与文案就不随
+    #   Python 版本变（CI 的 3.11 与 3.13 曾因此一个红一个绿）。
+    if "?" in url and _has_query_rule(text):
+        return False, "URL 带查询参数，且 robots 里有含 ? 的规则（标准库可能误判），保守拒绝"
+
     ua = sess.headers.get("User-Agent", "*")  # 用我们真正在用的 UA 去问
     if not rp.can_fetch(ua, url):  # 注意方法名：can_fetch，不是 canfetch
         return False, "robots 明确禁止"
-
-    if "?" in url and _has_query_rule(text):
-        return False, "URL 带查询参数，且 robots 里有含 ? 的规则（标准库会误判），保守拒绝"
 
     if not text:
         return True, "没有 robots.txt（404），视为允许"

@@ -50,8 +50,10 @@ def run_gui(argv: list[str]) -> int:
     from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
     from gui.main_window import MainWindow
+    from gui.theme import apply_theme
 
     app = QApplication(argv)
+    apply_theme(app)  # ★ 全局浅色主题：只改外观（颜色/圆角/悬停），不含任何逻辑
     app.setQuitOnLastWindowClosed(False)  # ★ 关窗口只是收进托盘，程序别退
     win = MainWindow()
     if "--minimized" in argv:  # 开机自启用：启动就躲进托盘

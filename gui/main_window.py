@@ -79,6 +79,7 @@ class MainWindow(QMainWindow):
         self.spin_subpages.setRange(1, 200)
         self.spin_subpages.setValue(20)
         self.btn_url = QPushButton("开始抓取")
+        self.btn_url.setObjectName("primary")  # ★ 主按钮：蓝底白字（样式在 gui/theme.py）
         url_bar.addWidget(QLabel("URL："))
         url_bar.addWidget(self.url_input, 1)
         url_bar.addWidget(self.chk_subpages)
@@ -90,9 +91,11 @@ class MainWindow(QMainWindow):
         # ---------- 第二行：站点采集 / 报告 ----------
         bar = QHBoxLayout()
         self.btn_collect = QPushButton("开始采集（run_daily）")
+        self.btn_collect.setObjectName("primary")  # ★ 主按钮
         self.btn_report = QPushButton("生成报告（analysis.report）")
         self.btn_check = QPushButton("刷新数据概况")
         self.btn_stop = QPushButton("■ 停止")
+        self.btn_stop.setObjectName("danger")  # ★ 危险按钮：红字
         self.btn_stop.setEnabled(False)  # 没任务在跑时不让点
         for b in (self.btn_collect, self.btn_report, self.btn_check, self.btn_stop):
             bar.addWidget(b)
@@ -109,6 +112,7 @@ class MainWindow(QMainWindow):
         self.prepare_data_dir()  # ★ data/ 得先存在：下面资源管理页拿它当根
 
         self.overview = QTableWidget()
+        self.overview.setAlternatingRowColors(True)  # ★ 斑马纹（颜色在主题里）
         self.tabs.addTab(self.overview, "数据概况")
 
         self.tabs.addTab(self._build_explorer(), "资源管理")
@@ -197,6 +201,7 @@ class MainWindow(QMainWindow):
         self.tree.clicked.connect(self.on_tree_clicked)
 
         self.preview_table = QTableWidget()
+        self.preview_table.setAlternatingRowColors(True)  # ★ 斑马纹
         self.preview_text = QPlainTextEdit()
         self.preview_text.setReadOnly(True)
         self.preview_stack = QStackedWidget()
@@ -352,6 +357,7 @@ class MainWindow(QMainWindow):
         split.setOrientation(Qt.Orientation.Vertical)
         self.table_chart = QWebEngineView()  # 这张表对应的图（表里没图就显示一句说明）
         self.filter_table = QTableWidget()  # 这张表的数据
+        self.filter_table.setAlternatingRowColors(True)  # ★ 斑马纹
         split.addWidget(self.table_chart)
         split.addWidget(self.filter_table)
         split.setSizes([420, 380])  # 初始各占多少
@@ -376,6 +382,7 @@ class MainWindow(QMainWindow):
         split = QSplitter()
         self.cross_view = QWebEngineView()
         self.cross_table = QTableWidget()
+        self.cross_table.setAlternatingRowColors(True)  # ★ 斑马纹
         split.addWidget(self.cross_view)
         split.addWidget(self.cross_table)
         split.setStretchFactor(0, 3)

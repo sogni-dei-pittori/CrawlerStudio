@@ -13,7 +13,7 @@ echo First build from scratch takes 20-40 min; an incremental one ~3-10 min.
 echo.
 
 .venv\Scripts\python.exe -m nuitka ^
-  --standalone --enable-plugin=pyside6 --windows-console-mode=force ^
+  --standalone --enable-plugin=pyside6 --windows-console-mode=disable ^
   --output-dir=build_nuitka --output-filename=CrawlerStudio.exe ^
   --include-package-data=pyecharts ^
   --include-data-dir=assets=assets ^
@@ -23,7 +23,7 @@ echo.
   --include-package=analysis --include-package=extract --include-package=warehouse ^
   --nofollow-import-to=matplotlib --nofollow-import-to=streamlit --nofollow-import-to=selenium ^
   --company-name="Personal Study Project" --product-name="CrawlerStudio" ^
-  --file-version=0.3.0 --product-version=0.3.0 ^
+  --file-version=0.4.0 --product-version=0.4.0 ^
   --windows-icon-from-ico=assets\app.ico ^
   --jobs=8 --lto=no ^
   main.py

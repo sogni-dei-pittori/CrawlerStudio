@@ -51,7 +51,7 @@ build_nuitka/
 tools/nuitka_test/
 
 # Inno Setup 产物（安装包很大，别进仓库）
-installer/
+/installer/
 assets/installer/
 
 # ==================== 垃圾文件 ====================
